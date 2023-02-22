@@ -74,9 +74,5 @@ for(i in 1:length(years)){
   
 }
 
-#bind results
-final_bind = out_years %>%
-  bind_rows()
-
 #write out final csv
 write_csv(final_bind, '/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture.csv')

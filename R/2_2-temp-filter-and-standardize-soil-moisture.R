@@ -14,7 +14,7 @@ sites = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/merged-
 
 moving_window_standardize = function(x){
   #set min data for drought anom calculations (3 years min)
-  min_data_thresh = 93
+  min_data_thresh = 31*6
   
   indicies = 1:length(x$date)
   out = vector()
@@ -43,7 +43,7 @@ moving_window_standardize = function(x){
     standard = x %>%
       filter(yday %in% range) %>%
       #return all data (static reference frame) and long cliamtology length
-      mutate(drought_anomaly = gamma_fit_spi(.[[2]], return_latest = F, climatology_length = Inf))
+      mutate(drought_anomaly = gamma_fit_spi(.[[2]], return_latest = F, climatology_length = Inf, export_opts = 'SPI'))
     
     #find index of centroid date (date of interest)
     if(length(standard$date) >= min_data_thresh){
@@ -117,7 +117,7 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
 
 #3.3 hr on 20 cores
 tictoc::tic()
-cl = makeSOCKcluster(20)
+cl = makeSOCKcluster(30)
 registerDoSNOW(cl)
 pb = txtProgressBar(min=1, max=length(sites$site_id), style=3)
 progress <- function(n) setTxtProgressBar(pb, n)
@@ -147,5 +147,5 @@ final = out %>%
 sites_final = sites %>%
   filter(site_id %in% unique(final$site_id))
 
-write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide.csv')
-write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta.csv')
+write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min.csv')
+write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta-6-years-min.csv')
