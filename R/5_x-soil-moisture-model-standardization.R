@@ -70,7 +70,7 @@ parallel_standardize = function(data, unique_sites, data_gap){
 }
 
 ## Initialize cluster
-cl = makeCluster(19)
+cl = makeCluster(10)
 registerDoParallel(cl)
 clusterExport(cl, c("moving_window_standardize", "gamma_fit_spi"))
 
@@ -107,18 +107,17 @@ standardized_SPoRT = parallel_standardize(data = SPoRT, unique_sites = SPoRT_sit
 
 write_csv(standardized_SPoRT, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/SPoRT-soil-moisture-standardized-w-storage.csv')
 
-
 ## SMAP
 smap_raw = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture.csv') %>%
-  mutate(nc_id = 'SMAP_subsurface_soil_moisture',
-         time = time_end,
-         value = susm,
+  mutate(nc_id = 'SMAP_rootzone_soil_moisture',
+         time = date,
+         value = rootzone_sm,
          name = site_id) %>%
   select(nc_id, time, name, value)
 
-smap_sites = unique(SPoRT$name)
+smap_sites = unique(smap_raw$name)
 
-standardized_smap = parallel_standardize(data = smap_raw, unique_sites = smap_sites, data_gap = 3) %>%
+standardized_smap = parallel_standardize(data = smap_raw, unique_sites = smap_sites, data_gap = 1) %>%
   bind_rows()
 
 write_csv(standardized_smap, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/smap-soil-moisture-standardized-w-storage.csv')

@@ -17,62 +17,47 @@ stations = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/stan
 
 #define years of interest
 years = 2015:2022
+months = 1:12
+
+index = tibble(date = seq(as.Date('2015-04-01'), as.Date('2022-12-01'), by = 'month')) %>%
+  mutate(month = lubridate::month(date),
+         year = lubridate::year(date))
 
 #define list to store results
-out_years = list()
+out_data = list()
 
-#loop through years (GEE memory constraint)
-for(i in 1:length(years)){
-  print(years[i])
+#loop through months (GEE memory constraint)
+for(i in 1:length(index$date)){
+  print(index$date[i])
   
   #define GEE images
-  smap_susm = ee$ImageCollection("NASA_USDA/HSL/SMAP10KM_soil_moisture")$
-    select('susm')$
-    filter(ee$Filter$calendarRange(years[i], field = "year"))$
+  smap_rootzone = ee$ImageCollection("NASA/SMAP/SPL4SMGP/007")$
+    select('sm_rootzone')$
+    filter(ee$Filter$calendarRange(index$year[i], field = "year"))$
+    filter(ee$Filter$calendarRange(index$month[i], field = "month"))$
+    filter(ee$Filter$calendarRange(1, field = "hour"))$
     toBands()
   
-  smap_ssm = ee$ImageCollection("NASA_USDA/HSL/SMAP10KM_soil_moisture")$
-    select('ssm')$
-    filter(ee$Filter$calendarRange(years[i], field = "year"))$
-    toBands()
-  
-  #stract at point
-  smap_susm_extract = ee_extract(x = smap_susm,
-                                 y = stations,
-                                 fun = ee$Reducer$mean(),
-                                 scale = 10000,
-                                 sf = T)
-  
-  smap_ssm_extract = ee_extract(x = smap_ssm,
+  smap_rootzone_extract = ee_extract(x = smap_rootzone,
                                 y = stations,
                                 fun = ee$Reducer$mean(),
-                                scale = 10000,
+                                scale = 11000,
                                 sf = T)
   
   #clean up results and compute time
-  smap_susm_extract_clean = smap_susm_extract %>%
+  final = smap_rootzone_extract %>%
     st_drop_geometry() %>%
-    pivot_longer(., cols = -c('network', 'site_id', 'elevation_ft'), values_to = 'susm') %>%
-    mutate(time_start = substr(name, 18, 25) %>% as.Date(format = '%Y%m%d'),
-           time_end = substr(name, 27, 35) %>% as.Date(format = '%Y%m%d')) %>%
-    dplyr::select(-name)
-  
-  smap_ssm_extract_clean = smap_ssm_extract %>%
-    st_drop_geometry() %>%
-    pivot_longer(., cols = -c('network', 'site_id', 'elevation_ft'), values_to = 'ssm') %>%
-    mutate(time_start = substr(name, 18, 25) %>% as.Date(format = '%Y%m%d'),
-           time_end = substr(name, 27, 35) %>% as.Date(format = '%Y%m%d')) %>%
-    dplyr::select(-name)
-  
-  #left join
-  final = left_join(smap_ssm_extract_clean, smap_susm_extract_clean, 
-                    by = c("network","site_id","elevation_ft","time_start","time_end")) %>%
-    dplyr::select(network, site_id, elevation_ft, time_start, time_end, ssm, susm)
+    pivot_longer(., cols = -c('network', 'site_id', 'elevation_ft'), values_to = 'rootzone_sm') %>%
+    mutate(date = substr(name, 2, 9) %>% as.Date(format = '%Y%m%d')) %>%
+    dplyr::select(-name) %>%
+    dplyr::select(network, site_id, elevation_ft, date, rootzone_sm)
   
   #save!
-  out_years[[i]] = final
-  
+  out_data[[i]] = final
 }
+
+final_bind = out_data %>%
+  bind_rows()
 
 #write out final csv
 write_csv(final_bind, '/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture.csv')
