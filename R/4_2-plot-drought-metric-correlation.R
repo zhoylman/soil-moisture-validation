@@ -1,30 +1,42 @@
+#load libs
 library(tidyverse)
 library(scales)
 
-metric = 'spi'
-metric_upper = casefold(metric, upper = TRUE)
-
+#define drought metric names
 metrics = c('spi', 'spei', 'eddi')
 
+#import station meta
+stations_meta = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta.csv')
 
+#define USCRN if you want to only use USCRN
+uscrn = stations_meta %>%
+  filter(network == 'USCRN')
+
+#define mode function 
 getMode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
 
+#for loop per drought metric
 for(i in 1:length(metrics)){
+  #define metric lower and upper case
   metric = metrics[i]
   metric_upper = casefold(metric, upper = TRUE)
   
-  out = readRDS(paste0('/home/zhoylman/soil-moisture-validation-data/processed/correlations/',metric,'-cor.RDS'))
+  #import data from script 4_1
+  out = readRDS(paste0('/home/zhoylman/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse.RDS'))
   
+  #summarize the full season results 
   full_seasonal_corelation_all = Filter(function(a) any(!is.na(a)), out) %>%
     purrr::map(1) %>%
     lapply(., function(x){return(x %>% mutate(generalized_depth = generalized_depth %>% as.character()))}) %>%
     bind_rows()
   
+  #compute density data to compute optimal timescale for whole season
   density_data = full_seasonal_corelation_all %>%
     filter(standardize_method == 'drought_anomaly') %>%
+    #filter(site_id %in% uscrn$site_id) %>%
     group_by(generalized_depth) %>%
     do(density_x = density(.$timescale_mode, bw = 'nrd')$x,
        density_y = density(.$timescale_mode, bw = 'nrd')$y,
@@ -33,44 +45,48 @@ for(i in 1:length(metrics)){
     unnest(cols = c(density_x, density_y, n, density_bw)) %>%
     filter(density_x > 0 & density_x < 730) 
   
-  # test = full_seasonal_corelation_all %>%
-  #   filter(standardize_method == 'drought_anomaly') %>%
-  #   group_by(generalized_depth) %>%
-  #   do(hist_x = hist(.$timescale_mode, bw = 'nrd'))
-  
+  #compute the mode of the KDE (this is the optimal seasonal timescale by depth)
   mode_data = density_data %>%
     group_by(generalized_depth) %>%
     filter(density_y == max(density_y)) %>%
     mutate(simplified_timescale = plyr::round_any(density_x, 10),
            n = n[1])
   
-  # test_split = full_seasonal_corelation_all %>%
-  #   filter(standardize_method == 'drought_anomaly') %>%
-  #   group_split(generalized_depth)
-  #   
-  # ggplot()+
-  #   geom_histogram(data = test_split[[1]], aes(timescale_mode, y = ..density.., fill = generalized_depth), color = 'transparent', fill = 'blue', alpha = 0.2)+
-  #   geom_histogram(data = test_split[[2]], aes(timescale_mode, y = ..density.., fill = generalized_depth), color = 'transparent', fill = 'red', alpha = 0.2)+
-  #   geom_histogram(data = test_split[[3]], aes(timescale_mode, y = ..density.., fill = generalized_depth), color = 'transparent', fill = 'green', alpha = 0.2)+
-  #   geom_density(data = test_split[[1]], aes(timescale_mode, color = generalized_depth), color = 'blue',)+
-  #   geom_density(data = test_split[[2]], aes(timescale_mode, color = generalized_depth), color = 'red')+
-  #   geom_density(data = test_split[[3]], aes(timescale_mode, color = generalized_depth), color = 'green')+
-  #   geom_point(data = mode_data, aes(x = density_x, y = density_y, color = generalized_depth))+
-  #   geom_text(data = mode_data, aes(x = density_x+70, y = density_y, label = paste0(simplified_timescale, ' days')))
-  
+  # compute the monthly correlations (we will use this to compute average rmse)
   full_monthly_corelation_all = Filter(function(a) any(!is.na(a)), out) %>%
     purrr::map(2) %>%
     bind_rows()
   
+  #compute full season rmse given the optimal timescale from mode data (joined with flexible below)
+  rigid_season_rmse = full_monthly_corelation_all %>%
+    filter(standardize_method == 'drought_anomaly',
+           timescale %in% mode_data$simplified_timescale,
+           month >= 5 & month <= 10) %>% 
+    #filter for modal timescale by depth to compute seasonal average rmse for optimal timescale
+    filter(generalized_depth == mode_data$generalized_depth[1] & 
+           timescale == mode_data$simplified_timescale [1] | 
+           generalized_depth == mode_data$generalized_depth[2] & 
+           timescale == mode_data$simplified_timescale [2]| 
+           generalized_depth == mode_data$generalized_depth[3] & 
+           timescale == mode_data$simplified_timescale [3]
+           ) %>%
+    #filter for a minimum of 30 obs to compute rmse (less than 1% of the data)
+    filter(n > 30) %>%
+    group_by(site_id, generalized_depth) %>%
+    summarize(median_seasonal_rigid_rmse = median(linearFit_RMSE, na.rm = T),
+              median_seasonal_rigid_r = median(pearson_r, na.rm = T))
+  
+  #re compute monthly filtered data (same as above but for all months (not just May - Oct))
   monthly_filtered = full_monthly_corelation_all %>%
     filter(standardize_method == 'drought_anomaly' ,
            timescale %in% mode_data$simplified_timescale) %>%
+    #filter(site_id %in% uscrn$site_id) %>%
     filter(generalized_depth == mode_data$generalized_depth[1] & timescale == mode_data$simplified_timescale[1] |
              generalized_depth == mode_data$generalized_depth[2] & timescale == mode_data$simplified_timescale[2] |
              generalized_depth == mode_data$generalized_depth[3] & timescale == mode_data$simplified_timescale[3])
   
+  #compute montly final correlations (this is for fig 2-4(b))
   monthly_final = monthly_filtered %>%
-    filter(n > 93) %>% 
     group_by(generalized_depth, timescale, month) %>%
     summarise(median_r = quantile(pearson_r, 0.5, na.rm = T),
               upper_r = quantile(pearson_r, 0.75, na.rm = T),
@@ -78,21 +94,17 @@ for(i in 1:length(metrics)){
     mutate(dummy_date = paste0('2022-',month,'-01') %>% lubridate::ymd(.),
            generalized_depth_timescale = paste0(generalized_depth, ' [', timescale, ' day ', metric_upper, ']'))
   
-  
+  #compute multi part string match for month, generalized depth, and timescale
   monthly_table_data = full_monthly_corelation_all %>%
     #extract relevant standized soil moisture metric
     filter(standardize_method == 'drought_anomaly')%>%
-    #filter for at least 3 years of data
-    filter(n > 93) %>%
+    #filter(site_id %in% uscrn$site_id) %>%
     #compute site and probe specific optimal timescales
     group_by(month, name, site_id) %>%
     {if(metric == 'eddi') filter(., pearson_r == min(pearson_r)) else filter(., pearson_r == max(pearson_r))} %>%
     ungroup() %>%
     #generalize across sites
     group_by(month, generalized_depth) %>%
-    # summarise(median_r = median(pearson_r),
-    #           #median timescale?
-    #           median_timescale = median(timescale) %>% plyr::round_any(., 10))
     do(density_x = density(.$timescale, bw = 'nrd')$x,
        density_y = density(.$timescale, bw = 'nrd')$y) %>%
     unnest(cols = c(density_x, density_y)) %>%
@@ -103,9 +115,11 @@ for(i in 1:length(metrics)){
            str_match = paste0('month=', month, ',generalized_depth=',generalized_depth,',timescale=',simplified_timescale)) %>%
     select(month, generalized_depth, str_match)
   
+  # use the above calculated string match to extract relevant information for plot
   monthly_table_final = full_monthly_corelation_all %>%
     #extract relevant standized soil moisture metric
     filter(standardize_method == 'drought_anomaly') %>%
+    #filter(site_id %in% uscrn$site_id) %>%
     #compute str_match
     mutate(str_full = paste0('month=', month, ',generalized_depth=',generalized_depth,',timescale=',timescale)) %>%
     #bind kernal density maxima to data
@@ -119,14 +133,31 @@ for(i in 1:length(metrics)){
               min_timescale = min(timescale)) %>%
     mutate(dummy_date = paste0('2022-',month,'-01') %>% lubridate::ymd(.))
   
+  # use the above calculated string match to extract relevant information for rmse comparison
+  monthly_flexible_rmse = full_monthly_corelation_all %>%
+    #extract relevant standized soil moisture metric
+    filter(standardize_method == 'drought_anomaly') %>%
+    #filter(site_id %in% uscrn$site_id) %>%
+    #compute str_match
+    mutate(str_full = paste0('month=', month, ',generalized_depth=',generalized_depth,',timescale=',timescale)) %>%
+    #bind kernal density maxima to data
+    left_join(., monthly_table_data, by = c('month', 'generalized_depth')) %>%
+    #filter for month, generalized depth and simplified_timescale
+    filter(str_full == str_match) %>%
+    #filter by months of interst
+    filter(month >= 5 & month <= 10) %>%
+    group_by(site_id, generalized_depth) %>%
+    summarise(median_seasonal_flexible_rmse = median(linearFit_RMSE, na.rm = T),
+              median_seasonal_flexible_r = median(pearson_r, na.rm = T))
+  
+  #left join the two rmse comparison datasets
+  final_rmse_comparison = left_join(rigid_season_rmse, monthly_flexible_rmse, by = c('site_id', 'generalized_depth'))
+  
+  #write final rmse comparison csv
+  write_csv(final_rmse_comparison, paste0('~/soil-moisture-validation-data/processed/rmse-comparison/',metric,'-6-years-min-season-rmse.csv'))
+  
   # plot it
   density_plot = ggplot(data = density_data)+
-    # geom_histogram(data = test_split[[1]], aes(timescale_mode, y = ..density.., fill = generalized_depth), 
-    #                color = 'transparent', fill = 'blue', alpha = 0.1, show.legend = F)+
-    # geom_histogram(data = test_split[[2]], aes(timescale_mode, y = ..density.., fill = generalized_depth), 
-    #                color = 'transparent', fill = 'forestgreen', alpha = 0.1, show.legend = F)+
-    # geom_histogram(data = test_split[[3]], aes(timescale_mode, y = ..density.., fill = generalized_depth), 
-    #                color = 'transparent', fill = '#800080', alpha = 0.1, show.legend = F)+
     geom_line(aes(x = density_x, y = density_y, color = generalized_depth))+
     geom_point(data = mode_data, aes(x = density_x, y = density_y, color = generalized_depth))+
     geom_text(data = mode_data, aes(x = density_x+70, y = density_y, label = paste0(simplified_timescale, ' days')))+
@@ -181,5 +212,5 @@ for(i in 1:length(metrics)){
   top_row = cowplot::plot_grid(density_plot, seasonal_plot, rel_widths = c(0.6,0.4), labels = c('(a)', '(b)'))
   full_plot = cowplot::plot_grid(top_row, seasonal_table, nrow = 2, labels = c('', '(c)'))
   
-  ggsave(full_plot, file = paste0('/home/zhoylman/soil-moisture-validation/figs/',metric,'-cor.png'), width = 9, height = 10)
+  ggsave(full_plot, file = paste0('/home/zhoylman/soil-moisture-validation/figs/',metric,'-6-years-min-cor.png'), width = 9, height = 10)
 }
