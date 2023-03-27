@@ -59,10 +59,11 @@ density_plot = ggplot(data = density_data)+
   xlim(-0.5,1)+
   theme(legend.position="bottom", legend.box = "horizontal",
         plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5),
-        strip.background = element_blank())+
+        strip.background = element_blank(),
+        legend.background = element_rect(size = 0.2))+
   guides(color=guide_legend(nrow=4,byrow=TRUE))
 
 density_plot
 
 ggsave(density_plot, file = '/home/zhoylman/soil-moisture-validation/figs/pearson_comparison.png',
-       width = 6, height = 8, dpi = 300)
+       width = 6.5, height = 8, dpi = 300)
