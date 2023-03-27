@@ -55,7 +55,7 @@ density_plot = ggplot(data = density_data)+
   facet_grid(generalized_depth~.)+
   labs(x = 'Pearson r', y = 'Density')+
   scale_colour_manual(values = viridis::turbo(8), name = '')+
-  geom_segment(data = mode_data, aes(x = density_x, xend = density_x, y = density_y, yend = -Inf, color = drought_metric), linetype = 'dashed')+
+  geom_segment(data = mode_data, aes(x = density_x, xend = density_x, y = density_y, yend = -Inf, color = drought_metric), linetype = 'dotted')+
   xlim(-0.5,1)+
   theme(legend.position="bottom", legend.box = "horizontal",
         plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5),
