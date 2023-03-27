@@ -50,27 +50,19 @@ density_plot = ggplot(data = density_data)+
   ggtitle(paste0('Correlation Comparison'), 
           'Kernel Density Estimation of Station Specific Correlation (r)')+
   theme_bw(base_size = 14)+
-  # theme(legend.position = c(0.72,0.8),
-  #       plot.title = element_text(size = 14, hjust = 0.5))+
   theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid'))+
   geom_point(data = mode_data, aes(x = density_x, y = density_y, color = drought_metric))+
-  # ggrepel::geom_label_repel(
-  #   data = mode_data,
-  #   aes(x = density_x, y = density_y, color = drought_metric, label = modal_r),
-  #   fill= NA, box.padding = 0.5
-  # ) + 
-  # geom_text(data = mode_data, fontface = "bold", 
-  #           aes(x = density_x, y = density_y, color = drought_metric, label = modal_r),
-  #           position=position_jitter(width=0.1,height=0.1))+
   facet_grid(generalized_depth~.)+
   labs(x = 'Pearson r', y = 'Density')+
   scale_colour_manual(values = viridis::turbo(8), name = '')+
+  geom_segment(data = mode_data, aes(x = density_x, xend = density_x, y = density_y, yend = -Inf, color = drought_metric), linetype = 'dashed')+
   xlim(-0.5,1)+
   theme(legend.position="bottom", legend.box = "horizontal",
         plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5),
-        strip.background =element_rect(fill="transparent"))
+        strip.background = element_blank())+
+  guides(color=guide_legend(nrow=4,byrow=TRUE))
 
 density_plot
 
 ggsave(density_plot, file = '/home/zhoylman/soil-moisture-validation/figs/pearson_comparison.png',
-       width = 10, height = 8, dpi = 300)
+       width = 6, height = 8, dpi = 300)
