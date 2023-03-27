@@ -46,6 +46,7 @@ mode_data = density_data %>%
   mutate(modal_r = plyr::round_any(density_x, 0.01))
 
 density_plot = ggplot(data = density_data)+
+  geom_segment(data = mode_data, aes(x = density_x, xend = density_x, y = density_y, yend = 0, color = drought_metric), alpha = 0.6)+
   geom_line(aes(x = density_x, y = density_y, color = drought_metric))+
   ggtitle(paste0('Correlation Comparison'), 
           'Kernel Density Estimation of Station Specific Correlation (r)')+
@@ -55,7 +56,6 @@ density_plot = ggplot(data = density_data)+
   facet_grid(generalized_depth~.)+
   labs(x = 'Correlation (r)', y = 'Density')+
   scale_colour_manual(values = viridis::turbo(8), name = '')+
-  geom_segment(data = mode_data, aes(x = density_x, xend = density_x, y = density_y, yend = 0, color = drought_metric), alpha = 0.6)+
   xlim(-0.5,1)+
   theme(legend.position="bottom", legend.box = "horizontal",
         plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5),
