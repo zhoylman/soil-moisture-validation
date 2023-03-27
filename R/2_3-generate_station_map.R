@@ -23,6 +23,6 @@ site_map = ggplot()+
         plot.subtitle = element_text(hjust = 0.5),
         legend.title=element_blank())+
   scale_fill_manual(values = viridis::turbo(5), name = '')+
-  ggtitle('In situ Soil Moisture Observations', paste0('n = ', length(stations_meta$network)))
+  ggtitle(expression(~italic(In)~italic(Situ)~' Soil Moisture Observations'), paste0('n = ', length(stations_meta$network)))
 
 ggsave(site_map, file = '/home/zhoylman/soil-moisture-validation/figs/site_map.png', width = 8, height = 8)
