@@ -16,7 +16,7 @@ states = read_sf('https://eric.clst.org/assets/wiki/uploads/Stuff/gz_2010_us_040
 
 site_map = ggplot()+
   geom_sf(data = states, fill = 'transparent')+
-  geom_sf(data = stations_meta, aes(fill = network), shape = 21)+
+  geom_sf(data = stations_meta, aes(fill = network), shape = 21, size = 2)+
   theme_bw(base_size = 20)+
   theme(plot.title = element_text(hjust = 0.5),
         legend.position="bottom", legend.box = "horizontal",
