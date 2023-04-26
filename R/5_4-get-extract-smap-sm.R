@@ -32,7 +32,7 @@ for(i in 1:length(index$date)){
   
   #define GEE images
   smap_rootzone = ee$ImageCollection("NASA/SMAP/SPL4SMGP/007")$
-    select('sm_rootzone')$
+    select('sm_rootzone_pctl')$
     filter(ee$Filter$calendarRange(index$year[i], field = "year"))$
     filter(ee$Filter$calendarRange(index$month[i], field = "month"))$
     filter(ee$Filter$calendarRange(1, field = "hour"))$
@@ -47,10 +47,10 @@ for(i in 1:length(index$date)){
   #clean up results and compute time
   final = smap_rootzone_extract %>%
     st_drop_geometry() %>%
-    pivot_longer(., cols = -c('network', 'site_id', 'elevation_ft'), values_to = 'rootzone_sm') %>%
+    pivot_longer(., cols = -c('network', 'site_id', 'elevation_ft'), values_to = 'sm_rootzone_pctl') %>%
     mutate(date = substr(name, 2, 9) %>% as.Date(format = '%Y%m%d')) %>%
     dplyr::select(-name) %>%
-    dplyr::select(network, site_id, elevation_ft, date, rootzone_sm)
+    dplyr::select(network, site_id, elevation_ft, date, sm_rootzone_pctl)
   
   #save!
   out_data[[i]] = final
@@ -60,4 +60,4 @@ final_bind = out_data %>%
   bind_rows()
 
 #write out final csv
-write_csv(final_bind, '/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture.csv')
+write_csv(final_bind, '/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture-percentile.csv')

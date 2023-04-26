@@ -3,20 +3,36 @@ library(magrittr)
 library(doParallel)
 library(foreach)
 
+is_na <- function(x) {
+  anyNA(x)
+}
+
 source('https://raw.githubusercontent.com/mt-climate-office/mco-drought-indicators/master/processing/ancillary-functions/R/drought-functions.R')
 
 #define function to do the moving window drought anom
-moving_window_standardize = function(x, data_gap = 1){
+moving_window_standardize = function(x, data_gap = 1, export_opts = 'CDF'){
   #data_gap represents the gap between obs, here daily = 1, weekly = 7 and so on
-  #set min data for drought anom calculations (3 years min)
-  min_data_thresh = 93/data_gap
+  #set min data for drought anom calculations (6 years min)
+  min_data_thresh = (31*6)/data_gap
 
   #compute some date info
   x = x %>%
     dplyr::mutate(date = time,
-                  yday = lubridate::yday(date))
-  indicies = 1:length(x$date)
-  out = vector()
+                  yday = lubridate::yday(date),
+                  year = lubridate::year(date)) %>%
+    arrange(date)
+  
+  
+  #compute which years have a full dataset
+  full_years = x %>%
+    group_by(year) %>%
+    summarise(n = length(value))
+    
+  first_full_year = full_years$year[which(full_years$n == 365)[1]]
+  
+  indicies = which(x$year == first_full_year)
+  
+  out = list()
   for(index in indicies){
     date_of_interest = x$date[index]
     #compute index specific window
@@ -42,59 +58,102 @@ moving_window_standardize = function(x, data_gap = 1){
     standard = x %>%
       filter(yday %in% range) %>%
       #return all data (static reference frame) and long cliamtology length
-      mutate(drought_anomaly = gamma_fit_spi(value, return_latest = F, climatology_length = Inf, export_opts = 'SPI'))
+      mutate(drought_anomaly = gamma_fit_spi(value, return_latest = F, climatology_length = Inf, export_opts = 'CDF'))
 
     #find index of centroid date (date of interest)
     if(length(standard$date) >= min_data_thresh){
-      out[index] = standard$drought_anomaly[which(standard$date == date_of_interest)]
+      out[[index]] = standard[which(standard$yday == lubridate::yday(date_of_interest)),]
     } else {
-      out[index] = NA
+      out[[index]] = NA
     }
   }
-  return(out)
+  #if its the last index
+  if(index == indicies[length(indicies)]){
+    #function to remove empty elements from list
+    is_na <- function(x) {
+      anyNA(x)
+    }
+    #bind the final data frame together
+    out_final = out %>% 
+      purrr::discard(., is_na) %>%
+      bind_rows() %>%
+      dplyr::arrange(time)
+  }
+  return(out_final)
 }
 
-parallel_standardize = function(data, unique_sites, data_gap){
+parallel_standardize = function(data, unique_sites, data_gap, export_opts = 'CDF'){
   out_list = foreach(sites = unique_sites, 
-                     .packages = c('tidyverse', 'magrittr')) %dopar% {
-                       temp_x = data %>%
-                         filter(name == sites)
-                       
-                       out = temp_x %>%
-                         mutate(drought_anomaly = moving_window_standardize(temp_x, data_gap),
-                                storage_anomoly = gamma_fit_spi(value, climatology_length = Inf, export_opts = 'SPI', return_latest = F))
-                       
-                       out
+                     .packages = c('tidyverse', 'magrittr', 'ggplot2')) %dopar% {
+                       tryCatch({
+                         export_opts_id = 'CDF'
+                         
+                         temp_x = data %>%
+                           filter(name == sites)
+                         
+                         drought_anomaly = moving_window_standardize(temp_x, data_gap) %>%
+                           dplyr::select(time, drought_anomaly)
+                         
+                         out = temp_x %>%
+                           left_join(., drought_anomaly, by = 'time') %>%
+                           mutate(storage_anomoly = gamma_fit_spi(value, climatology_length = Inf, export_opts = 'CDF', return_latest = F))
+                         
+                         plot = ggplot(out, aes(x = storage_anomoly, y = drought_anomaly, color = lubridate::yday(time)))+
+                           geom_point()+
+                           ggtitle(out$name[1], out$nc_id[1])+
+                           scale_color_gradientn(colors = rainbow(365))
+                         
+                         ggsave(plot, file = paste0('/home/zhoylman/temp/dist_plots/', out$name[1],'_',out$nc_id[1], '.png'))
+                         
+                         out
+                       }, error = function(e){
+                         out = NA
+                         out
+                       })
                      }
   return(out_list)
 }
 
+####################### Already in Percentiles ##############################
+
+## reorganize grace 
+grace = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/grace-soil-moisture-percentile.csv') %>%
+  pivot_longer(cols = -c(nc_id, time)) %>%
+  mutate(drought_anomaly = value,
+         storage_anomoly = NA)
+
+write_csv(grace, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/grace-soil-moisture-standardized-percentile.csv')
+
+## reorganize cpc 
+cpc = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/cpc-soil-moisture-percentile.csv') %>%
+  pivot_longer(cols = -c(nc_id, time)) %>%
+  mutate(drought_anomaly = value,
+         storage_anomoly = NA)
+
+write_csv(cpc, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/cpc-soil-moisture-standardized-percentile.csv')
+
+## reorganize SMAP
+smap = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture-percentile.csv') %>%
+  mutate(nc_id = 'SMAP_rootzone_soil_moisture',
+         time = date,
+         value = sm_rootzone_pctl,
+         name = site_id) %>%
+  select(nc_id, time, name, value) %>%
+  mutate(drought_anomaly = value,
+         storage_anomoly = NA)
+
+write_csv(smap, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/smap-soil-moisture-standardized-percentile.csv')
+
+############################################################################
+
+####################### Percentiles Unavailable ############################
+#here we will compute our own according to procedure in script 2_2 
+#standardization method for observed data. 
+
 ## Initialize cluster
-cl = makeCluster(10)
+cl = makeCluster(30)
 registerDoParallel(cl)
 clusterExport(cl, c("moving_window_standardize", "gamma_fit_spi"))
-
-## compute grace standardized
-grace = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/grace-soil-moisture.csv') %>%
-  pivot_longer(cols = -c(nc_id, time))
-
-grace_sites = unique(grace$name)
-
-standardized_grace = parallel_standardize(data = grace, unique_sites = grace_sites, data_gap = 7) %>%
-  bind_rows()
-
-write_csv(standardized_grace, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/grace-soil-moisture-standardized-w-storage.csv')
-
-## compute cpc standardized
-cpc = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/cpc-soil-moisture.csv') %>%
-  pivot_longer(cols = -c(nc_id, time))
-
-cpc_sites = unique(grace$name)
-
-standardized_cpc = parallel_standardize(data = cpc, unique_sites = cpc_sites, data_gap = 1) %>%
-  bind_rows()
-
-write_csv(standardized_cpc, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/cpc-soil-moisture-standardized-w-storage.csv')
 
 ## compute SPoRT standardized
 SPoRT = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/SPoRT-soil-moisture.csv') %>%
@@ -102,37 +161,38 @@ SPoRT = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-mo
 
 SPoRT_sites = unique(SPoRT$name)
 
-standardized_SPoRT = parallel_standardize(data = SPoRT, unique_sites = SPoRT_sites, data_gap = 1) %>%
-  bind_rows()
+standardized_SPoRT = parallel_standardize(data = SPoRT, unique_sites = SPoRT_sites, data_gap = 1) 
 
-write_csv(standardized_SPoRT, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/SPoRT-soil-moisture-standardized-w-storage.csv')
+standardized_SPoRT_bind = Filter(function(a) any(!is.na(a)), standardized_SPoRT) %>%
+  bind_rows() %>%
+  mutate(drought_anomaly = drought_anomaly*100,
+         storage_anomoly = storage_anomoly*100)
 
-## SMAP
-smap_raw = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/smap-soil-moisture.csv') %>%
-  mutate(nc_id = 'SMAP_rootzone_soil_moisture',
-         time = date,
-         value = rootzone_sm,
-         name = site_id) %>%
-  select(nc_id, time, name, value)
-
-smap_sites = unique(smap_raw$name)
-
-standardized_smap = parallel_standardize(data = smap_raw, unique_sites = smap_sites, data_gap = 1) %>%
-  bind_rows()
-
-write_csv(standardized_smap, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/smap-soil-moisture-standardized-w-storage.csv')
+write_csv(standardized_SPoRT_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/SPoRT-soil-moisture-standardized-percentile.csv')
 
 ## compute TOPOFIRE standardized
-topofire = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/topofire-soil-moisture.csv') %>%
-  pivot_longer(cols = -c(nc_id, time))
+topofire_raw = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/topofire-soil-moisture.csv') %>%
+  pivot_longer(cols = -c(nc_id, time)) %>%
+  arrange(time)
+
+#filter for the most recent 30 years
+topofire_years = topofire_raw %>%
+  summarize(years = unique(lubridate::year(time)))
+
+#extract the last 30 years of data to be consistant with hoylman et al., 2022
+topofire = topofire_raw %>%
+  filter(lubridate::year(time) %in% tail(topofire_years$years, 30))
 
 topofire_sites = unique(topofire$name)
 
-standardized_topofire= parallel_standardize(data = topofire, unique_sites = topofire_sites, data_gap = 1) %>%
-  bind_rows()
+standardized_topofire = parallel_standardize(data = topofire, unique_sites = topofire_sites, data_gap = 1) 
 
-write_csv(standardized_topofire, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/topofire-soil-moisture-standardized-w-storage.csv')
+standardized_topofire_bind = Filter(function(a) any(!is.na(a)), standardized_topofire) %>%
+  bind_rows() %>%
+  mutate(drought_anomaly = drought_anomaly*100,
+         storage_anomoly = storage_anomoly*100)
 
+write_csv(standardized_topofire_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/topofire-soil-moisture-standardized-percentile.csv')
 
 #stop cluster
 stopCluster(cl)

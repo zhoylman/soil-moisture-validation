@@ -46,17 +46,21 @@ SPoRT_extract = extract_nc(nc_id = 'SPoRT_mean_soil_moisture_0-100cm',
 write_csv(SPoRT_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/SPoRT-soil-moisture.csv')
 
 #extract cpc
-cpc_extract = extract_nc(nc_id = 'cpc_soil_moisture',
-                           nc_path = '/mnt/data1/soil-moisture-models/nc/cpc_soil_moisture.nc', 
+cpc_extract = extract_nc(nc_id = 'cpc_soil_moisture_percentile',
+                           nc_path = '/mnt/data1/soil-moisture-models/nc/cpc_soil_moisture_percentile.nc', 
                            nc_lon_name = 'longitude', 
                            nc_lat_name = 'latitude', 
-                           nc_var_name = 'cpc_soil_moisture', 
-                           nc_time = read_csv('/mnt/data1/soil-moisture-models/nc/cpc_soil_moisture_time.csv')$date, 
+                           nc_var_name = 'cpc_soil_moisture_percentile', 
+                           nc_time = read_csv('/mnt/data1/soil-moisture-models/nc/cpc_soil_moisture_time_percentile.csv')$date, 
                            stations = stations, 
                            station_lat_name = 'latitude', 
                            station_lon_name = 'longitude')
 
-write_csv(cpc_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/cpc-soil-moisture.csv')
+#cpc has percentiles greater than 100 and less than 0!!! Not good!
+cpc_extract = cpc_extract %>% mutate_at(vars(-c(nc_id, time)), ~replace(., . > 100, 100))
+cpc_extract = cpc_extract %>% mutate_at(vars(-c(nc_id, time)), ~replace(., . < 0, 0))
+
+write_csv(cpc_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/cpc-soil-moisture-percentile.csv')
 
 #extract grace
 grace_extract = extract_nc(nc_id = 'grace_rtzn_soil_moisture',
@@ -69,5 +73,5 @@ grace_extract = extract_nc(nc_id = 'grace_rtzn_soil_moisture',
                          station_lat_name = 'latitude', 
                          station_lon_name = 'longitude')
 
-write_csv(grace_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/grace-soil-moisture.csv')
+write_csv(grace_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/grace-soil-moisture-percentile.csv')
 

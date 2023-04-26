@@ -12,8 +12,11 @@ source('https://raw.githubusercontent.com/mt-climate-office/mco-drought-indicato
 vwc_all = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/merged-soil-moisture/soil-moisture-data-wide.csv')
 sites = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/merged-soil-moisture/station_meta.csv')
 
+#compute the cdf, this can be converted to stand anomoly with a qnorm transform
+export_opts_id = 'CDF' # 'SPI'
+
 moving_window_standardize = function(x){
-  #set min data for drought anom calculations (3 years min)
+  #set min data for drought anom calculations (6 years min)
   min_data_thresh = 31*6
   
   indicies = 1:length(x$date)
@@ -43,7 +46,7 @@ moving_window_standardize = function(x){
     standard = x %>%
       filter(yday %in% range) %>%
       #return all data (static reference frame) and long cliamtology length
-      mutate(drought_anomaly = gamma_fit_spi(.[[2]], return_latest = F, climatology_length = Inf, export_opts = 'SPI'))
+      mutate(drought_anomaly = gamma_fit_spi(.[[2]], return_latest = F, climatology_length = Inf, export_opts = export_opts_id))
     
     #find index of centroid date (date of interest)
     if(length(standard$date) >= min_data_thresh){
@@ -97,7 +100,7 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
       drop_na() %>%
       #compute standardized storage anomoly
       mutate(!!as.name(paste0('storage_anomaly_',unique_depths[i], "in")) := 
-               gamma_fit_spi(!!as.name(temp_moisture_col), return_latest = F, climatology_length = Inf),
+               gamma_fit_spi(!!as.name(temp_moisture_col), return_latest = F, climatology_length = Inf, export_opts = export_opts_id),
              yday = yday(date))
 
     #compute drought anomoly (based on a 31 day centered moving window)
@@ -147,5 +150,7 @@ final = out %>%
 sites_final = sites %>%
   filter(site_id %in% unique(final$site_id))
 
-write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min.csv')
-write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta-6-years-min.csv')
+if(export_opts_id == 'CDF'){
+  write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF.csv')
+  write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF.csv')
+}
