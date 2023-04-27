@@ -128,7 +128,7 @@ drought_indicies = binded_joined %>%
 
 binded = binded_joined %>%
   filter(nc_id %notin% c("Optimized SPI", "Optimized SPEI", "Optimized EDDI")) %>%
-  bind_rows(., drought_indicies) %>%
+  bind_rows(., drought_indicies %>% distinct()) %>%
   #convert to standard anomoly
   mutate(model_drought_anomaly = ifelse(nc_id == 'Optimized SPI'|
                                           nc_id == 'Optimized SPEI'|
