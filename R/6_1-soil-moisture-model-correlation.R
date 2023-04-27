@@ -180,7 +180,7 @@ for(i in 1:2){
   #   sample_n(20000)
   
   #plot the results!
-  plot1 = binded_filtered %>%
+  plot1 = binded_filtered_test %>%
     ggplot(., aes(x = value, y = model_drought_anomaly)) +
     stat_density_2d(
       geom = "raster",
@@ -217,6 +217,50 @@ for(i in 1:2){
   png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
       width = 23, height = 13, units = 'in', res = 200)
   print(plot1)
+  dev.off()
+  
+  #vertical
+  plot2 = binded_filtered_test %>%
+    ggplot(., aes(x = value, y = model_drought_anomaly)) +
+    stat_density_2d(
+      geom = "raster",
+      aes(fill = after_stat(density)),
+      contour = FALSE
+    )+
+    geom_smooth(method = 'lm', color = 'black', size = 0.5, se  = F)+
+    scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
+    #geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.75, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'black', size = 3)+
+    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+    theme_bw(base_size = 15)+
+    geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
+    ylim(c(-2,2))+
+    xlim(c(-2,2))+
+    facet_grid(nc_id~depth, labeller = label_wrap_gen(width=10))+
+    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
+    theme(legend.key = element_blank(), strip.background =element_blank(),
+          legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
+    guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
+    ggtitle(paste0(full_names[i], ' (May - Oct)'),
+            #ggtitle(paste0(full_names[i]), 
+            paste0('n (sites) = ', n_sites, ', n (unique soil moisture observations) = ', 
+                   n_obs %>% format(.,format="d", big.mark=",")))+
+    theme(plot.title = element_text(hjust = 0.5, size=18), 
+          plot.subtitle = element_text(hjust = 0.5, size=12),
+          strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
+          strip.placement = "outside")
+  
+  #plot1
+  
+  # png(paste0("/home/zhoylman/temp/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
+  #     width = 23, height = 13, units = 'in', res = 200)
+  # print(plot1)
+  # dev.off()
+  
+  png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
+      width = 10, height = 16, units = 'in', res = 300)
+  print(plot2)
   dev.off()
 }
 
