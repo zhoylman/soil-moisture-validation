@@ -1,7 +1,7 @@
 library(tidyverse)
 library(sf)
 library(magrittr)
-library(grid)
+library(shadowtext)
 
 `%notin%` = Negate(`%in%`)
 
@@ -160,6 +160,7 @@ for(i in 1:2){
     
   #compute correlation stats for correlation
   drought_anomoly_stats = binded_filtered %>%
+    distinct() %>%
     group_by(nc_id, depth) %>%
     do(r = cor(.$model_drought_anomaly, .$value),
        rmse = sqrt(mean((.$value - .$model_drought_anomaly)^2)),
@@ -180,7 +181,7 @@ for(i in 1:2){
   #   sample_n(20000)
   
   #plot the results!
-  plot1 = binded_filtered_test %>%
+  plot1 = binded_filtered %>%
     ggplot(., aes(x = value, y = model_drought_anomaly)) +
     stat_density_2d(
       geom = "raster",
@@ -189,9 +190,9 @@ for(i in 1:2){
     )+
     geom_smooth(method = 'lm', color = 'black', size = 0.5, se  = F)+
     scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
-    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.75, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white')+
-    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.5, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white')+
-    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.25, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white')+
+    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.75, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white')+
+    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.5, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white')+
+    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.25, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white')+
     theme_bw(base_size = 15)+
     geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
     ylim(c(-2,2))+
@@ -220,7 +221,7 @@ for(i in 1:2){
   dev.off()
   
   #vertical
-  plot2 = binded_filtered_test %>%
+  plot2 = binded_filtered %>%
     ggplot(., aes(x = value, y = model_drought_anomaly)) +
     stat_density_2d(
       geom = "raster",
@@ -230,9 +231,9 @@ for(i in 1:2){
     geom_smooth(method = 'lm', color = 'black', size = 0.5, se  = F)+
     scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
     #geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.75, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'black', size = 3)+
-    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    geom_text(data = drought_anomoly_stats, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
     theme_bw(base_size = 15)+
     geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
     ylim(c(-2,2))+
