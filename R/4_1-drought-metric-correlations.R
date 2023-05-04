@@ -15,12 +15,22 @@ metric_upper = casefold(metric, upper = T)
 
 #import drought data
 drought = read_csv(paste0('~/soil-moisture-validation-data/processed/drought-metrics/',metric,'-data-long-10s.csv'))%>%
-  rename(drought = metric)
+  rename(drought = metric) %>%
+  #clamp data at -2 and 2
+  mutate(drought = ifelse(drought > 2, 2, drought),
+         drought = ifelse(drought < -2, -2, drought))
 
 #import soil moisture data
-soil_moisture = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min.csv') %>%
+soil_moisture = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF.csv') %>%
   pivot_longer(., cols = -c(site_id,date)) %>%
   mutate(time = date) %>%
+  select(site_id,time,name,value) %>%
+  #convert anomalies to standard normal if they are anomolies but leave raw alone
+  mutate(value_new = ifelse(grepl("anomaly", name),  qnorm(value), value),
+         #clamp data at -2 and 2
+         value_new = ifelse(value_new > 2, 2, value_new),
+         value_new = ifelse(value_new < -2, -2, value_new),
+         value = ifelse(grepl("anomaly", name),  value_new, value)) %>%
   select(site_id,time,name,value)
 
 #compute ids to process (site locations)
@@ -283,7 +293,7 @@ stopCluster(cl)
 tictoc::toc()
 
 #save out final data as RDS dataset
-saveRDS(out, paste0('~/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse.RDS'))
+saveRDS(out, paste0('~/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse_clamped.RDS'))
 
 #memory management
 gc(); gc()
