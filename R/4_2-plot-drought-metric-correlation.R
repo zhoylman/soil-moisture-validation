@@ -6,7 +6,7 @@ library(scales)
 metrics = c('spi', 'spei', 'eddi')
 
 #import station meta
-stations_meta = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta.csv')
+stations_meta = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF.csv')
 
 #define USCRN if you want to only use USCRN
 uscrn = stations_meta %>%
@@ -25,7 +25,7 @@ for(i in 1:length(metrics)){
   metric_upper = casefold(metric, upper = TRUE)
   
   #import data from script 4_1
-  out = readRDS(paste0('/home/zhoylman/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse.RDS'))
+  out = readRDS(paste0('/home/zhoylman/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse_clamped.RDS'))
   
   #summarize the full season results 
   full_seasonal_corelation_all = Filter(function(a) any(!is.na(a)), out) %>%
@@ -154,7 +154,26 @@ for(i in 1:length(metrics)){
   final_rmse_comparison = left_join(rigid_season_rmse, monthly_flexible_rmse, by = c('site_id', 'generalized_depth'))
   
   #write final rmse comparison csv
-  write_csv(final_rmse_comparison, paste0('~/soil-moisture-validation-data/processed/rmse-comparison/',metric,'-6-years-min-season-rmse.csv'))
+  #write_csv(final_rmse_comparison, paste0('~/soil-moisture-validation-data/processed/rmse-comparison/',metric,'-6-years-min-season-rmse-clamped.csv'))
+  
+  #rename for consistancy
+  density_data = density_data %>%
+    mutate(generalized_depth = ifelse(generalized_depth == "Middle (8in - 20in)",
+                                      "Middle (8-20in)", generalized_depth))
+  monthly_final = monthly_final %>%
+    mutate(generalized_depth = ifelse(generalized_depth == "Middle (8in - 20in)",
+                                      "Middle (8-20in)", generalized_depth),
+           generalized_depth_timescale = paste0(generalized_depth, ' [', timescale, ' day ', metric_upper, ']'))
+  
+  monthly_table_final = monthly_table_final %>%
+    mutate(generalized_depth = ifelse(generalized_depth == "Middle (8in - 20in)",
+                                      "Middle (8-20in)", generalized_depth),
+           #max is 0.703 - for color truncate at 0.7
+           median_r = ifelse(median_r > 0.7, 0.7, median_r))
+  
+  mode_data = mode_data %>%
+    mutate(generalized_depth = ifelse(generalized_depth == "Middle (8in - 20in)",
+                                      "Middle (8-20in)", generalized_depth))
   
   # plot it
   density_plot = ggplot(data = density_data)+
@@ -164,6 +183,7 @@ for(i in 1:length(metrics)){
     ggtitle(paste0(metric_upper, ' Optimal Timescales (May - Oct)'))+
     theme_bw(base_size = 14)+
     theme(legend.position = c(0.72,0.8),
+          legend.margin=margin(r = 0.6, t = 0.3, l = 0.3, b = 0.3, unit='cm'),
           plot.title = element_text(size = 14, hjust = 0.5))+
     theme(legend.background = element_rect(colour = 'black', fill = 'white', linetype='solid'))+
     guides(color=guide_legend(title="Soil Depth", reverse = TRUE))+
@@ -212,5 +232,5 @@ for(i in 1:length(metrics)){
   top_row = cowplot::plot_grid(density_plot, seasonal_plot, rel_widths = c(0.6,0.4), labels = c('(a)', '(b)'))
   full_plot = cowplot::plot_grid(top_row, seasonal_table, nrow = 2, labels = c('', '(c)'))
   
-  ggsave(full_plot, file = paste0('/home/zhoylman/soil-moisture-validation/figs/',metric,'-6-years-min-cor.png'), width = 9, height = 10)
+  ggsave(full_plot, file = paste0('/home/zhoylman/soil-moisture-validation/figs/',metric,'-6-years-min-cor-clamped.png'), width = 9, height = 10)
 }
