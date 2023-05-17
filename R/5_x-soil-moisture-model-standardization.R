@@ -98,13 +98,13 @@ parallel_standardize = function(data, unique_sites, data_gap, export_opts = 'CDF
                            left_join(., drought_anomaly, by = 'time') %>%
                            mutate(storage_anomoly = gamma_fit_spi(value, climatology_length = Inf, export_opts = 'CDF', return_latest = F))
                          
-                         plot = ggplot(out, aes(x = storage_anomoly, y = drought_anomaly, color = lubridate::yday(time)))+
-                           geom_point()+
-                           ggtitle(out$name[1], out$nc_id[1])+
-                           scale_color_gradientn(colors = rainbow(365))
-                         
-                         ggsave(plot, file = paste0('/home/zhoylman/temp/dist_plots/', out$name[1],'_',out$nc_id[1], '.png'))
-                         
+                         # plot = ggplot(out, aes(x = storage_anomoly, y = drought_anomaly, color = lubridate::yday(time)))+
+                         #   geom_point()+
+                         #   ggtitle(out$name[1], out$nc_id[1])+
+                         #   scale_color_gradientn(colors = rainbow(365))
+                         # 
+                         # ggsave(plot, file = paste0('/home/zhoylman/temp/dist_plots/', out$name[1],'_',out$nc_id[1], '.png'))
+                         # 
                          out
                        }, error = function(e){
                          out = NA
@@ -193,6 +193,91 @@ standardized_topofire_bind = Filter(function(a) any(!is.na(a)), standardized_top
          storage_anomoly = storage_anomoly*100)
 
 write_csv(standardized_topofire_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/topofire-soil-moisture-standardized-percentile.csv')
+
+######################## NLDAS2 ##################################
+# starting with VIC
+## compute NLDAS2 standardized
+nldas2_vic = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/NLDAS2_VIC_soil_moisture_0-100cm.csv') %>%
+  pivot_longer(cols = -c(nc_id, time))
+
+nldas2_vic_sites = unique(nldas2_vic$name)
+
+tictoc::tic()
+standardized_nldas2_vic = parallel_standardize(data = nldas2_vic, unique_sites = nldas2_vic_sites, data_gap = 1) 
+tictoc::toc()
+
+standardized_nldas2_vic_bind = Filter(function(a) any(!is.na(a)), standardized_nldas2_vic) %>%
+  bind_rows() %>%
+  mutate(drought_anomaly = drought_anomaly*100,
+         storage_anomoly = storage_anomoly*100)
+
+write_csv(standardized_nldas2_vic_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/NLDAS2-VIC-soil-moisture-standardized-percentile.csv')
+
+# next with NOAH
+## compute NLDAS2 standardized
+nldas2_noah = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/NLDAS2_NOAH_soil_moisture_0-100cm.csv') %>%
+  pivot_longer(cols = -c(nc_id, time))
+
+nldas2_noah_sites = unique(nldas2_noah$name)
+
+tictoc::tic()
+standardized_nldas2_noah = parallel_standardize(data = nldas2_noah, unique_sites = nldas2_noah_sites, data_gap = 1) 
+tictoc::toc()
+
+standardized_nldas2_noah_bind = Filter(function(a) any(!is.na(a)), standardized_nldas2_noah) %>%
+  bind_rows() %>%
+  mutate(drought_anomaly = drought_anomaly*100,
+         storage_anomoly = storage_anomoly*100)
+
+write_csv(standardized_nldas2_noah_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/NLDAS2-NOAH-soil-moisture-standardized-percentile.csv')
+
+# then with MOSAIC
+## compute NLDAS2 standardized
+nldas2_mosaic = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/soil-moisture-model-extractions/NLDAS2_MOSAIC_soil_moisture_0-100cm.csv') %>%
+  pivot_longer(cols = -c(nc_id, time))
+
+nldas2_mosaic_sites = unique(nldas2_mosaic$name)
+
+tictoc::tic()
+standardized_nldas2_mosaic = parallel_standardize(data = nldas2_mosaic, unique_sites = nldas2_mosaic_sites, data_gap = 1) 
+tictoc::toc()
+
+standardized_nldas2_mosaic_bind = Filter(function(a) any(!is.na(a)), standardized_nldas2_mosaic) %>%
+  bind_rows() %>%
+  mutate(drought_anomaly = drought_anomaly*100,
+         storage_anomoly = storage_anomoly*100)
+
+write_csv(standardized_nldas2_mosaic_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/NLDAS2-MOSAIC-soil-moisture-standardized-percentile.csv')
+
+#finally, based on the ensamble mean
+nldas2_ensamble = nldas2_vic %>%
+  select(time,name,value) %>%
+  rename(vic = value) %>%
+  left_join(., nldas2_noah %>%
+              select(time,name,value) %>%
+              rename(noah = value)) %>%
+  left_join(., nldas2_mosaic %>%
+              select(time,name,value) %>%
+              rename(mosaic = value)) %>%
+  rowwise %>% 
+  mutate(value = mean(c(vic, noah, mosaic))) %>%
+  select(time, name, value) %>%
+  mutate(nc_id = 'NLDAS2_ensamble_soil_moisture_0-100cm') %>%
+  relocate(nc_id) %>%
+  drop_na(value)
+
+nldas2_ensamble_sites = unique(nldas2_ensamble$name)
+
+tictoc::tic()
+standardized_nldas2_ensamble = parallel_standardize(data = nldas2_ensamble, unique_sites = nldas2_ensamble_sites, data_gap = 1) 
+tictoc::toc()
+
+standardized_nldas2_ensamble_bind = Filter(function(a) any(!is.na(a)), standardized_nldas2_ensamble) %>%
+  bind_rows() %>%
+  mutate(drought_anomaly = drought_anomaly*100,
+         storage_anomoly = storage_anomoly*100)
+
+write_csv(standardized_nldas2_ensamble_bind, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models/NLDAS2-ENSAMBLE-soil-moisture-standardized-percentile.csv')
 
 #stop cluster
 stopCluster(cl)

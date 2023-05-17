@@ -57,6 +57,9 @@ moving_window_standardize = function(x){
   }
   return(out)
 }
+
+#site_of_interest = sites$site_id[700]
+
 temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
   
   #pull in data and select site of interest
@@ -70,7 +73,45 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
   cols = colnames(vwc) %>%
     as_tibble() %>%
     filter(value %notin% c('site_id', 'date')) %>%
-    mutate(depth = parse_number(value)) 
+    mutate(depth = parse_number(value),
+           generalized_depth = ifelse(depth <= 4, 'Shallow',
+                                      ifelse(depth > 4 & depth <= 20, 'Middle',
+                                             ifelse(depth > 20, 'Deep', NA))),
+           depth = paste0(depth, 'in')) 
+  
+  
+  #if there is data at each depth compute depth averaged soil moisture
+  if(length(unique(cols$generalized_depth)) == 3){
+    depth_averaged = vwc %>%
+      pivot_longer(., cols = -c('site_id', 'date')) %>%
+      mutate(depth = parse_number(name),
+             generalized_depth = ifelse(depth <= 4, 'Shallow',
+                                        ifelse(depth > 4 & depth <= 20, 'Middle',
+                                               ifelse(depth > 20, 'Deep', NA))),
+             variable = ifelse(str_detect(name, 'soil_moisture'), 'mean_soil_moisture',
+                               ifelse(str_detect(name, 'soil_temperature_'), 'mean_soil_temperature',NA))) %>%
+      #compute generalized depth average conditions
+      group_by(site_id, date, generalized_depth, variable) %>%
+      summarise(value = mean(value, na.rm = T)) %>%
+      ungroup() %>%
+      #now group only by date and variable to compute full depth averaged conditions
+      group_by(site_id, date, variable) %>%
+      summarise(value = mean(value, na.rm = F)) %>%
+      ungroup() %>%
+      #add a "depth" id
+      drop_na(value) %>%
+      pivot_wider(., names_from = 'variable', values_from = 'value')
+    
+    vwc = left_join(vwc, depth_averaged, by = c('site_id', 'date'))
+  }
+
+  #if there is mean depth data, add it to the tibble
+  if(length(unique(cols$generalized_depth)) == 3){
+    cols = cols %>%
+      bind_rows(., tibble(value = c('mean_soil_moisture', 'mean_soil_temperature'),
+                          depth = c('mean', 'mean'),
+                          generalized_depth = c('Mean', 'Mean')))
+  }
   
   #compute unique depths
   unique_depths = unique(cols$depth)
@@ -99,7 +140,7 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
       #drop NAs
       drop_na() %>%
       #compute standardized storage anomoly
-      mutate(!!as.name(paste0('storage_anomaly_',unique_depths[i], "in")) := 
+      mutate(!!as.name(paste0('storage_anomaly_',unique_depths[i])) := 
                gamma_fit_spi(!!as.name(temp_moisture_col), return_latest = F, climatology_length = Inf, export_opts = export_opts_id),
              yday = yday(date))
 
@@ -107,7 +148,7 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
     drought_anom = moving_window_standardize(storage_anom)
     
     temp[[i]] = storage_anom %>%
-      mutate(!!as.name(paste0('drought_anomaly_',unique_depths[i], "in")) := 
+      mutate(!!as.name(paste0('drought_anomaly_',unique_depths[i])) := 
                drought_anom) %>%
       select(-yday)
     print(i)
@@ -120,7 +161,7 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
 
 #3.3 hr on 20 cores
 tictoc::tic()
-cl = makeSOCKcluster(30)
+cl = makeSOCKcluster(20)
 registerDoSNOW(cl)
 pb = txtProgressBar(min=1, max=length(sites$site_id), style=3)
 progress <- function(n) setTxtProgressBar(pb, n)
@@ -151,6 +192,7 @@ sites_final = sites %>%
   filter(site_id %in% unique(final$site_id))
 
 if(export_opts_id == 'CDF'){
-  write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF.csv')
-  write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF.csv')
+  write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv')
+  write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF-w-mean.csv')
 }
+

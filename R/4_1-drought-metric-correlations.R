@@ -21,7 +21,7 @@ drought = read_csv(paste0('~/soil-moisture-validation-data/processed/drought-met
          drought = ifelse(drought < -2, -2, drought))
 
 #import soil moisture data
-soil_moisture = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF.csv') %>%
+soil_moisture = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv') %>%
   pivot_longer(., cols = -c(site_id,date)) %>%
   mutate(time = date) %>%
   select(site_id,time,name,value) %>%
@@ -40,7 +40,7 @@ ids = unique(soil_moisture$site_id)
 tictoc::tic()
 
 #set up the multi processing scheme and cluster
-cl = makeSOCKcluster(15)
+cl = makeSOCKcluster(10)
 registerDoSNOW(cl)
 
 #define parameters for the 
@@ -61,7 +61,7 @@ RMSE = function(lm){
   RMSE = sqrt(MSE)
   return(RMSE)
 }
-
+#out = foreach(i = c(1,100,200,300,400,500,600,700), .packages = c('tidyverse'), .options.snow= progress_bar(ids)) %dopar% {
 out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= progress_bar(ids)) %dopar% {
   #clear memory
   gc()
@@ -100,7 +100,7 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
         #linear model will be used to compute RMSE
         do(
           #compute linear model
-          linearFit = lm(.$value ~ .$drought),
+          #linearFit = lm(.$value ~ .$drought),
           #compute pearson r
           pearson = cor(.$drought, .$value,method="pearson"),
           #compute number of obs in model 
@@ -111,11 +111,11 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
           #extract number of obs in model
           n = unlist(n),
           #extract pearson r
-          pearson_r = unlist(pearson),
+          pearson_r = unlist(pearson)
           #extract r2 from lm
-          linearFit_r2 = summary(linearFit)$r.squared,
+          #linearFit_r2 = summary(linearFit)$r.squared,
           #compute RMSE from the lm
-          linearFit_RMSE = RMSE(linearFit)
+          #linearFit_RMSE = RMSE(linearFit)
           ) %>%
         #filter out no data models
         filter(n > 1) %>%
@@ -124,20 +124,26 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
         #filter for the minimum person r (this where the eddi vs spi functions differ)
         filter(pearson_r == min(pearson_r)) %>%
         #compute some information about depth
+        #compute some information about depth
         mutate(depth = parse_number(name),
                #compute the generalized depth
                generalized_depth = ifelse( depth <= 4, 'Shallow (0-4in)',
                                            ifelse(depth >= 8 & depth <= 20, 'Middle (8in - 20in)',
                                                   ifelse(depth > 20, 'Deep (>20in)', NA))),
+               #add a 'Mean soil moisture' generalized depth
+               generalized_depth = ifelse(str_detect(name, 'mean'), 'Depth Averaged', generalized_depth),
                #compute the generalized method (drought, storage, raw)
                standardize_method = gsub("[[:digit:]].*$", "", name),
-               standardize_method = str_sub(standardize_method, end=-2)) %>%
+               standardize_method = str_sub(standardize_method, end=-2),
+               standardize_method = ifelse(name == 'mean_soil_moisture', 'soil_moisture', standardize_method),
+               standardize_method = ifelse(name == 'drought_anomaly_mean', 'drought_anomaly', standardize_method),
+               standardize_method = ifelse(name == 'storage_anomaly_mean', 'storage_anomaly', standardize_method)) %>%
         #group_by the genrealized depth
         group_by(generalized_depth, standardize_method) %>%
         #compute summaries by generalized depth and method
         summarise(median_pearson_r = median(pearson_r),
-                  median_linearFit_r2 = median(linearFit_r2),
-                  median_linearFit_RMSE = median(linearFit_RMSE),
+                  #median_linearFit_r2 = median(linearFit_r2),
+                  #median_linearFit_RMSE = median(linearFit_RMSE),
                   timescale_mode = getMode(timescale),
                   timescale_range = max(timescale)- min(timescale)) %>%
         #ungroup
@@ -148,8 +154,8 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
                drought_metric = metric) %>%
         #select final data
         select(site_id, drought_metric, generalized_depth,
-               standardize_method, median_pearson_r, median_linearFit_r2, 
-               median_linearFit_RMSE, timescale_mode)
+               standardize_method, median_pearson_r, #median_linearFit_r2, median_linearFit_RMSE, 
+               timescale_mode)
     } else {
       #compute full season correlation (May 1st - Oct 31st) 
       #SPI/SPEI doesn't make sense with snow! (rationale)
@@ -171,7 +177,7 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
         #linear model will be used to compute RMSE
         do(
           #compute linear model
-          linearFit = lm(.$value ~ .$drought),
+          #linearFit = lm(.$value ~ .$drought),
           #compute pearson r
           pearson = cor(.$drought, .$value,method="pearson"),
           #compute number of obs in model 
@@ -182,11 +188,11 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
           #extract number of obs in model
           n = unlist(n),
           #extract pearson r
-          pearson_r = unlist(pearson),
+          pearson_r = unlist(pearson)
           #extract r2 from lm
-          linearFit_r2 = summary(linearFit)$r.squared,
+          #linearFit_r2 = summary(linearFit)$r.squared,
           #compute RMSE from the lm
-          linearFit_RMSE = RMSE(linearFit)
+          #linearFit_RMSE = RMSE(linearFit)
         ) %>%
         #filter out no data models
         filter(n > 1) %>%
@@ -200,15 +206,20 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
                generalized_depth = ifelse( depth <= 4, 'Shallow (0-4in)',
                                            ifelse(depth >= 8 & depth <= 20, 'Middle (8in - 20in)',
                                                   ifelse(depth > 20, 'Deep (>20in)', NA))),
+               #add a 'Mean soil moisture' generalized depth
+               generalized_depth = ifelse(str_detect(name, 'mean'), 'Depth Averaged', generalized_depth),
                #compute the generalized method (drought, storage, raw)
                standardize_method = gsub("[[:digit:]].*$", "", name),
-               standardize_method = str_sub(standardize_method, end=-2)) %>%
+               standardize_method = str_sub(standardize_method, end=-2),
+               standardize_method = ifelse(name == 'mean_soil_moisture', 'soil_moisture', standardize_method),
+               standardize_method = ifelse(name == 'drought_anomaly_mean', 'drought_anomaly', standardize_method),
+               standardize_method = ifelse(name == 'storage_anomaly_mean', 'storage_anomaly', standardize_method)) %>%
         #group_by the genrealized depth
         group_by(generalized_depth, standardize_method) %>%
         #compute summaries by generalized depth and method
         summarise(median_pearson_r = median(pearson_r),
-                  median_linearFit_r2 = median(linearFit_r2),
-                  median_linearFit_RMSE = median(linearFit_RMSE),
+                  #median_linearFit_r2 = median(linearFit_r2),
+                  #median_linearFit_RMSE = median(linearFit_RMSE),
                   timescale_mode = getMode(timescale),
                   timescale_range = max(timescale) - min(timescale)) %>%
         #ungroup
@@ -219,8 +230,8 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
                drought_metric = metric) %>%
         #select final data
         select(site_id, drought_metric, generalized_depth,
-               standardize_method, median_pearson_r, median_linearFit_r2, 
-               median_linearFit_RMSE, timescale_mode)
+               standardize_method, median_pearson_r, #median_linearFit_r2, median_linearFit_RMSE, 
+               timescale_mode)
     }
     
     #compute the monthly correlations
@@ -239,7 +250,7 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
       #compute per group data
       do(
         #compute the linear fit
-        linearFit = lm(.$value ~ .$drought),
+        #linearFit = lm(.$value ~ .$drought),
         #compute the pearson correlation
         pearson = cor( .$drought, .$value,method="pearson"),
         #compute the number of obs in each model based on soil moisture obs
@@ -250,21 +261,26 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
         #extract pearsons r
         pearson_r = unlist(pearson),
         #extract number of obs
-        n = unlist(n),
+        n = unlist(n)
         #extract r2 from lm
-        linearFit_r2 = summary(linearFit)$r.squared,
+        #linearFit_r2 = summary(linearFit)$r.squared,
         #compute RMSE from the lm
-        linearFit_RMSE = RMSE(linearFit)
+        #linearFit_RMSE = RMSE(linearFit)
         ) %>%
-      #compute generalized identifiers
+      #compute some information about depth
       mutate(depth = parse_number(name),
-             #generalized depth
+             #compute the generalized depth
              generalized_depth = ifelse( depth <= 4, 'Shallow (0-4in)',
                                          ifelse(depth >= 8 & depth <= 20, 'Middle (8in - 20in)',
                                                 ifelse(depth > 20, 'Deep (>20in)', NA))),
-             #generalized standarization method
+             #add a 'Mean soil moisture' generalized depth
+             generalized_depth = ifelse(str_detect(name, 'mean'), 'Depth Averaged', generalized_depth),
+             #compute the generalized method (drought, storage, raw)
              standardize_method = gsub("[[:digit:]].*$", "", name),
-             standardize_method = str_sub(standardize_method, end=-2)) %>%
+             standardize_method = str_sub(standardize_method, end=-2),
+             standardize_method = ifelse(name == 'mean_soil_moisture', 'soil_moisture', standardize_method),
+             standardize_method = ifelse(name == 'drought_anomaly_mean', 'drought_anomaly', standardize_method),
+             standardize_method = ifelse(name == 'storage_anomaly_mean', 'storage_anomaly', standardize_method))  %>%
       #add back site identifier
       mutate(site_id = ids[i],
              #rename drought metric name
@@ -272,17 +288,23 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
       #select variables of interest
       select(site_id, drought_metric, month, generalized_depth,
              standardize_method, depth, name, pearson_r, 
-             linearFit_r2, linearFit_RMSE, timescale, n)
+             #linearFit_r2, linearFit_RMSE, 
+             timescale, n)
     
     #define export list
     export = list(full_seasonal_corelation, monthly_correlation)
     #push outside of foreach function
-    export
+    rm(temp_data, full_seasonal_corelation, monthly_correlation)
+    gc(); gc()
+    return(export)
+    rm(export)
+    gc(); gc()
   }, error = function(e){
     #if there is an error, return NA
     export = NA
     #push outside of foreach function
-    export
+    return(export)
+    gc(); gc()
   })
 } 
 #close the progress bar
@@ -293,7 +315,7 @@ stopCluster(cl)
 tictoc::toc()
 
 #save out final data as RDS dataset
-saveRDS(out, paste0('~/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse_clamped.RDS'))
+saveRDS(out, paste0('~/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse-clamped-w-mean.RDS'))
 
 #memory management
 gc(); gc()

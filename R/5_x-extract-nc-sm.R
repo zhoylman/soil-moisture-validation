@@ -3,7 +3,7 @@ library(ncdf4)
 library(terra)
 library(sf)
 
-stations = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta.csv')
+stations = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF-w-mean.csv')
 
 extract_nc = function(nc_id, nc_path, nc_lon_name, nc_lat_name, nc_var_name, nc_time, 
                       stations, station_lat_name, station_lon_name) {
@@ -39,7 +39,7 @@ SPoRT_extract = extract_nc(nc_id = 'SPoRT_mean_soil_moisture_0-100cm',
                            nc_lat_name = 'latitude', 
                            nc_var_name = 'SPoRT_mean_soil_moisture_0-100cm', 
                            nc_time = read_csv('/mnt/data1/soil-moisture-models/nc/SPoRT__mean_soil_moisture_0-100cm.csv')$time, 
-                           stations = stations[1,], 
+                           stations = stations, 
                            station_lat_name = 'latitude', 
                            station_lon_name = 'longitude')
 
@@ -75,3 +75,42 @@ grace_extract = extract_nc(nc_id = 'grace_rtzn_soil_moisture',
 
 write_csv(grace_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/grace-soil-moisture-percentile.csv')
 
+# extract the NLDAS2 models
+#VIC
+nldas2_vic_extract = extract_nc(nc_id = 'NLDAS2_VIC_soil_moisture_0-100cm',
+                           nc_path = '/mnt/data1/soil-moisture-models/nc/NLDAS2_VIC_soil_moisture_0-100cm.nc', 
+                           nc_lon_name = 'longitude', 
+                           nc_lat_name = 'latitude', 
+                           nc_var_name = 'nldas2_vic_soil_moisture_0-100cm_group_1', 
+                           nc_time = read_csv('/mnt/data1/soil-moisture-models/nc/NLDAS2_VIC_soil_moisture_0-100cm_time.csv')$date, 
+                           stations = stations, 
+                           station_lat_name = 'latitude', 
+                           station_lon_name = 'longitude')
+
+write_csv(nldas2_vic_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/NLDAS2_VIC_soil_moisture_0-100cm.csv')
+
+#NOAH
+nldas2_noah_extract = extract_nc(nc_id = 'NLDAS2_NOAH_soil_moisture_0-100cm',
+                                nc_path = '/mnt/data1/soil-moisture-models/nc/NLDAS2_NOAH_soil_moisture_0-100cm.nc', 
+                                nc_lon_name = 'longitude', 
+                                nc_lat_name = 'latitude', 
+                                nc_var_name = 'nldas2_noah_soil_moisture_0-100cm_group_1', 
+                                nc_time = read_csv('/mnt/data1/soil-moisture-models/nc/NLDAS2_NOAH_soil_moisture_0-100cm_time.csv')$date, 
+                                stations = stations, 
+                                station_lat_name = 'latitude', 
+                                station_lon_name = 'longitude')
+
+write_csv(nldas2_noah_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/NLDAS2_NOAH_soil_moisture_0-100cm.csv')
+
+#MOSAIC
+nldas2_mosaic_extract = extract_nc(nc_id = 'NLDAS2_MOSAIC_soil_moisture_0-100cm',
+                                nc_path = '/mnt/data1/soil-moisture-models/nc/NLDAS2_MOSAIC_soil_moisture_0-100cm.nc', 
+                                nc_lon_name = 'longitude', 
+                                nc_lat_name = 'latitude', 
+                                nc_var_name = 'nldas2_mosaic_soil_moisture_0-100cm_group_1', 
+                                nc_time = read_csv('/mnt/data1/soil-moisture-models/nc/NLDAS2_MOSAIC_soil_moisture_0-100cm_time.csv')$date, 
+                                stations = stations, 
+                                station_lat_name = 'latitude', 
+                                station_lon_name = 'longitude')
+
+write_csv(nldas2_mosaic_extract, file = '~/soil-moisture-validation-data/processed/soil-moisture-model-extractions/NLDAS2_MOSAIC_soil_moisture_0-100cm.csv')
