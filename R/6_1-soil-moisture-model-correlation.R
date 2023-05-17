@@ -3,6 +3,8 @@ library(sf)
 library(magrittr)
 library(shadowtext)
 
+plot_all_models = T
+
 #define special 
 `%notin%` = Negate(`%in%`)
 
@@ -18,9 +20,10 @@ standardized_soil_moisture_obs = read_csv('~/soil-moisture-validation-data/proce
 standardized_model = list.files('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models', 
                                 full.names = T, pattern = 'percentile') %>%
   as_tibble() %>%
-  filter(str_detect(value, c('MOSAIC'), negate = T),
-         str_detect(value, c('NOAH'), negate = T),
-         str_detect(value, c('VIC'), negate = T)) %$%
+  {if(plot_all_models == F) filter(., str_detect(value, c('MOSAIC'), negate = T),
+                                   str_detect(value, c('NOAH'), negate = T),
+                                   str_detect(value, c('VIC'), negate = T))
+    else .} %$%
   value %>%
   purrr::map(., read_csv) %>%
   bind_rows() %>%
@@ -97,9 +100,12 @@ binded_raw = bind_rows(list(
                                       ifelse(nc_id == 'SPoRT_mean_soil_moisture_0-100cm', 'SPoRT 0-100cm Soil Moisture', 
                                              ifelse(nc_id == 'topofire_soil_moisture', 'Topofire Soil Moisture', 
                                                     ifelse(nc_id == 'NLDAS2_ensamble_soil_moisture_0-100cm', 'NLDAS2 Ensamble 0-100cm Soil Moisture', 
-                                                        ifelse(nc_id == 'Optimized SPI', 'Optimized SPI', 
-                                                            ifelse(nc_id == 'Optimized SPEI', 'Optimized SPEI', 
-                                                                  ifelse(nc_id == 'Optimized EDDI', 'Optimized EDDI', NA))))))))))
+                                                         ifelse(nc_id == 'NLDAS2_MOSAIC_soil_moisture_0-100cm', 'NLDAS2 MOSAIC 0-100cm Soil Moisture', 
+                                                                ifelse(nc_id == 'NLDAS2_VIC_soil_moisture_0-100cm', 'NLDAS2 VIC 0-100cm Soil Moisture', 
+                                                                       ifelse(nc_id == 'NLDAS2_NOAH_soil_moisture_0-100cm', 'NLDAS2 NOAH 0-100cm Soil Moisture', 
+                                                                            ifelse(nc_id == 'Optimized SPI', 'Optimized SPI', 
+                                                                                ifelse(nc_id == 'Optimized SPEI', 'Optimized SPEI', 
+                                                                                      ifelse(nc_id == 'Optimized EDDI', 'Optimized EDDI', NA)))))))))))))
 
 #define each network independently incase we want to look at each indivitual network
 names = c('all','uscrn', 'mt_mesonet', 'scan', 'snotel')
@@ -187,12 +193,21 @@ for(i in 1:2){
     #invert eddi
     mutate(value = ifelse(nc_id == 'Optimized EDDI', -1*value, value)) %>%
     #define factor levels for plotting
-    mutate(nc_id = factor(nc_id, levels = c("Optimized SPI", "Optimized SPEI", "Optimized EDDI",
-                                            "CPC Soil Moisture", "GRACE Rootzone Soil Moisture",
-                                            "SMAP (L4) Rootzone Soil Moisture", 
-                                            "NLDAS2 Ensamble 0-100cm Soil Moisture",
-                                            "SPoRT 0-100cm Soil Moisture",
-                                            "Topofire Soil Moisture")))
+    {if(plot_all_models == T) mutate(., nc_id = factor(nc_id, levels = c("Optimized SPI", "Optimized SPEI", "Optimized EDDI",
+                                                                      "CPC Soil Moisture", "GRACE Rootzone Soil Moisture",
+                                                                      "NLDAS2 VIC 0-100cm Soil Moisture",
+                                                                      "NLDAS2 NOAH 0-100cm Soil Moisture",
+                                                                      "NLDAS2 MOSAIC 0-100cm Soil Moisture",
+                                                                      "NLDAS2 Ensamble 0-100cm Soil Moisture",
+                                                                      "SPoRT 0-100cm Soil Moisture",
+                                                                      "SMAP (L4) Rootzone Soil Moisture", 
+                                                                      "Topofire Soil Moisture")))
+      else mutate(., nc_id = factor(nc_id, levels = c("Optimized SPI", "Optimized SPEI", "Optimized EDDI",
+                                                           "CPC Soil Moisture", "GRACE Rootzone Soil Moisture",
+                                                           "NLDAS2 Ensamble 0-100cm Soil Moisture",
+                                                           "SPoRT 0-100cm Soil Moisture",
+                                                           "SMAP (L4) Rootzone Soil Moisture", 
+                                                           "Topofire Soil Moisture")))}
   
   #compute correlation stats for correlation
   drought_anomoly_stats = binded_filtered %>%
@@ -247,10 +262,12 @@ for(i in 1:2){
     theme(plot.title = element_text(hjust = 0.5, size=32, margin=margin(0,0,5,0)), 
           plot.subtitle = element_text(hjust = 0.5, margin=margin(0,0,25,0)))
   
-  png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
-      width = 23, height = 13, units = 'in', res = 200)
-  print(plot1)
-  dev.off()
+  if(plot_all_models == F){
+    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
+        width = 23, height = 13, units = 'in', res = 200)
+    print(plot1)
+    dev.off()
+  }
   
   #vertical
   plot2 = binded_filtered %>%
@@ -281,13 +298,14 @@ for(i in 1:2){
           strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
           strip.placement = "outside")
   
-  png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
-      width = 12, height = 17, units = 'in', res = 300)
-  print(plot2)
-  dev.off()
+  if(plot_all_models == F){
+    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
+        width = 12, height = 17, units = 'in', res = 300)
+    print(plot2)
+    dev.off()
+  }
   
-  #only mean soil moisture 
-  
+  #only mean soil moisture (plot if all models are included)
   binded_filtered_mean = binded_filtered %>%
     filter(depth == 'Depth Averaged') 
   
@@ -300,6 +318,9 @@ for(i in 1:2){
     distinct() %$%
     value %>%
     length()
+  
+  # binded_filtered_mean_test = binded_filtered_mean %>%
+  #   sample_n(., 20000)
   
   plot3 = binded_filtered_mean %>%
     ggplot(., aes(x = model_drought_anomaly, y = value)) +
@@ -316,7 +337,7 @@ for(i in 1:2){
     geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
     ylim(c(-2,2))+
     xlim(c(-2,2))+
-    facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 3)+
+    facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 4)+
     labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
     theme(legend.key = element_blank(), strip.background =element_blank(),
           legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
@@ -329,11 +350,46 @@ for(i in 1:2){
           strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
           strip.placement = "outside")
   
-  png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".png"),
-      width = 10, height = 10, units = 'in', res = 300)
-  print(plot3)
-  dev.off()
-  
+  if(plot_all_models == T){
+    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".png"),
+        width = 9, height = 12, units = 'in', res = 300)
+    print(plot3)
+    dev.off()
+  }
+    plot4 = binded_filtered_mean %>%
+      ggplot(., aes(x = model_drought_anomaly, y = value)) +
+      stat_density_2d(
+        geom = "raster",
+        aes(fill = after_stat(density)),
+        contour = FALSE
+      )+
+      scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
+      geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+      geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+      geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
+      theme_bw(base_size = 14)+
+      geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
+      ylim(c(-2,2))+
+      xlim(c(-2,2))+
+      facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 3)+
+      labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
+      theme(legend.key = element_blank(), strip.background =element_blank(),
+            legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
+      guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
+      ggtitle(paste0(full_names[i], ' (May - Oct)'),
+              paste0('n (sites) = ', n_sites, ', n (observations) = ', 
+                     n_obs_mean %>% format(.,format="d", big.mark=",")))+
+      theme(plot.title = element_text(hjust = 0.5, size=18), 
+            plot.subtitle = element_text(hjust = 0.5, size=12),
+            strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
+            strip.placement = "outside")
+    
+    if(plot_all_models == T){
+      png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_wide_", names[i],".png"),
+          width = 12, height = 9, units = 'in', res = 300)
+      print(plot4)
+      dev.off()
+  }
 }
 
 ##############################################################################
