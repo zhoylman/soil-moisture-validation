@@ -46,7 +46,8 @@ moving_window_standardize = function(x){
     standard = x %>%
       filter(yday %in% range) %>%
       #return all data (static reference frame) and long cliamtology length
-      mutate(drought_anomaly = gamma_fit_spi(.[[2]], return_latest = F, climatology_length = Inf, export_opts = export_opts_id))
+      #mutate(drought_anomaly = gamma_fit_spi(.[[2]], return_latest = F, climatology_length = Inf, export_opts = export_opts_id))
+      mutate(drought_anomaly = beta_fit_smi(.[[2]], return_latest = F, climatology_length = Inf, export_opts = export_opts_id))
     
     #find index of centroid date (date of interest)
     if(length(standard$date) >= min_data_thresh){
@@ -55,6 +56,7 @@ moving_window_standardize = function(x){
       out[index] = NA
     }
   }
+  rm(standard, x); gc(); gc()
   return(out)
 }
 
@@ -133,16 +135,20 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
     
     #filter for temperature and standardize
     storage_anom = vwc %>%
-      select(date, temp_moisture_col, temp_temperature_col) %>%
+      dplyr::select(date, temp_moisture_col, temp_temperature_col) %>%
       #filter data for temperature less than 34 F
       filter(!!as.name(temp_temperature_col) >= 34) %>%
-      select(date, temp_moisture_col) %>%
+      dplyr::select(date, temp_moisture_col) %>%
+      # if the data is scalled between 0-100, convert to 0-1
+      mutate(!!as.name(temp_moisture_col) := case_when(any(!!as.name(temp_moisture_col) > 1) ~ !!as.name(temp_moisture_col)/100, 
+                                                       TRUE ~!!as.name(temp_moisture_col)))%>%
       #drop NAs
       drop_na() %>%
       #compute standardized storage anomoly
       mutate(!!as.name(paste0('storage_anomaly_',unique_depths[i])) := 
-               gamma_fit_spi(!!as.name(temp_moisture_col), return_latest = F, climatology_length = Inf, export_opts = export_opts_id),
-             yday = yday(date))
+               #gamma_fit_spi(!!as.name(temp_moisture_col), return_latest = F, climatology_length = Inf, export_opts = export_opts_id),
+               beta_fit_smi(!!as.name(temp_moisture_col), return_latest = F, climatology_length = Inf, export_opts = export_opts_id),
+               yday = yday(date))
 
     #compute drought anomoly (based on a 31 day centered moving window)
     drought_anom = moving_window_standardize(storage_anom)
@@ -150,41 +156,57 @@ temp_filter_standardize_vwc = function(site_of_interest, vwc_all){
     temp[[i]] = storage_anom %>%
       mutate(!!as.name(paste0('drought_anomaly_',unique_depths[i])) := 
                drought_anom) %>%
-      select(-yday)
+      dplyr::select(-yday)
     print(i)
+    rm(drought_anom, storage_anom, temp_temperature_col, 
+       temp_moisture_col); gc(); gc()
   }
+  rm(vwc, vwc_all); gc(); gc()
   export = purrr::reduce(temp, left_join, by = c('date')) %>%
     mutate(site_id = site_of_interest) %>%
     relocate(site_id)
+  
   return(export)
 }
 
-#3.3 hr on 20 cores
-tictoc::tic()
-cl = makeSOCKcluster(20)
-registerDoSNOW(cl)
-pb = txtProgressBar(min=1, max=length(sites$site_id), style=3)
-progress <- function(n) setTxtProgressBar(pb, n)
-opts <- list(progress=progress)
-#length(ids)
-out = foreach(i = 1:length(sites$site_id), .packages = c('tidyverse', 'lubridate', 'magrittr', 'data.table'), .options.snow=opts) %dopar% {
-  gc()
-  tryCatch({
-    return = temp_filter_standardize_vwc(sites$site_id[i], vwc_all)
-    return
-  }, error = function(e){
-    return = NA
-    return
-  })
-} 
-close(pb)
-stopCluster(cl)
-tictoc::toc()
+#~ 24 hours on 20 cores - needs significant RAM (~300Gb)
+full_start = Sys.time()
+groups = rep(1:41,each = 20)[1:length(sites$site_id)]
+out_list = list()
+for(g in unique(groups)){
+  tictoc::tic()
+  print(paste0(g, ' of ', max(groups)))
+  batch_sites = sites$site_id[which(groups == g)]
+  cl = makeSOCKcluster(20)
+  registerDoSNOW(cl)
+  #length(ids)
+  out_list[[g]] = foreach(i = which(groups == g), .packages = c('tidyverse', 'lubridate', 'magrittr', 'data.table')) %dopar% {
+    gc()
+    vwc_temp = vwc_all %>%
+      filter(site_id == sites$site_id[i])
+    tryCatch({
+      return = temp_filter_standardize_vwc(sites$site_id[i], vwc_temp)
+      rm(vwc_temp); gc(); gc()
+      return
+    }, error = function(e){
+      return = NA
+      rm(vwc_temp); gc(); gc()
+      return
+    })
+  }
+  tictoc::toc()
+  stopCluster(cl)
+}
+
+full_end = Sys.time()
+
+print(full_end - full_start)
 
 #function to remove lists with only NA
 na.omit.list <- function(y) { return(y[!sapply(y, function(x) all(is.na(x)))]) }
 
-final = out %>%
+final = out_list %>%
+  unlist(., recursive = FALSE) %>%
   na.omit.list() %>%
   bind_rows()
 
@@ -192,7 +214,7 @@ sites_final = sites %>%
   filter(site_id %in% unique(final$site_id))
 
 if(export_opts_id == 'CDF'){
-  write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv')
-  write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF-w-mean.csv')
+  write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/beta-standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv')
+  write_csv(sites_final, '/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/beta-standardized-station-meta-6-years-min-CDF-w-mean.csv')
 }
 

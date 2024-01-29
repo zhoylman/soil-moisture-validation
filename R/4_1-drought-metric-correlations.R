@@ -21,17 +21,17 @@ drought = read_csv(paste0('~/soil-moisture-validation-data/processed/drought-met
          drought = ifelse(drought < -2, -2, drought))
 
 #import soil moisture data
-soil_moisture = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv') %>%
+soil_moisture = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/beta-standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv') %>%
   pivot_longer(., cols = -c(site_id,date)) %>%
   mutate(time = date) %>%
-  select(site_id,time,name,value) %>%
+  dplyr::select(site_id,time,name,value) %>%
   #convert anomalies to standard normal if they are anomolies but leave raw alone
   mutate(value_new = ifelse(grepl("anomaly", name),  qnorm(value), value),
          #clamp data at -2 and 2
          value_new = ifelse(value_new > 2, 2, value_new),
          value_new = ifelse(value_new < -2, -2, value_new),
          value = ifelse(grepl("anomaly", name),  value_new, value)) %>%
-  select(site_id,time,name,value)
+  dplyr::select(site_id,time,name,value)
 
 #compute ids to process (site locations)
 ids = unique(soil_moisture$site_id)
@@ -152,8 +152,8 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
         mutate(site_id = ids[i],
                #rename drought metric
                drought_metric = metric) %>%
-        #select final data
-        select(site_id, drought_metric, generalized_depth,
+        #dplyr::select final data
+        dplyr::select(site_id, drought_metric, generalized_depth,
                standardize_method, median_pearson_r, #median_linearFit_r2, median_linearFit_RMSE, 
                timescale_mode)
     } else {
@@ -228,8 +228,8 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
         mutate(site_id = ids[i],
                #rename drought metric
                drought_metric = metric) %>%
-        #select final data
-        select(site_id, drought_metric, generalized_depth,
+        #dplyr::select final data
+        dplyr::select(site_id, drought_metric, generalized_depth,
                standardize_method, median_pearson_r, #median_linearFit_r2, median_linearFit_RMSE, 
                timescale_mode)
     }
@@ -285,8 +285,8 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse'), .options.snow= prog
       mutate(site_id = ids[i],
              #rename drought metric name
              drought_metric = metric) %>%
-      #select variables of interest
-      select(site_id, drought_metric, month, generalized_depth,
+      #dplyr::select variables of interest
+      dplyr::select(site_id, drought_metric, month, generalized_depth,
              standardize_method, depth, name, pearson_r, 
              #linearFit_r2, linearFit_RMSE, 
              timescale, n)
@@ -315,7 +315,7 @@ stopCluster(cl)
 tictoc::toc()
 
 #save out final data as RDS dataset
-saveRDS(out, paste0('~/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse-clamped-w-mean.RDS'))
+saveRDS(out, paste0('~/soil-moisture-validation-data/processed/correlations/',metric,'-6-years-min-cor-rmse-clamped-w-mean-beta-standardized.RDS'))
 
 #memory management
 gc(); gc()

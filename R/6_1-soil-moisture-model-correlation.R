@@ -3,18 +3,18 @@ library(sf)
 library(magrittr)
 library(shadowtext)
 
-plot_all_models = T
+plot_all_models = F
 
 #define special 
 `%notin%` = Negate(`%in%`)
 
 #import site metadata
-stie_meta = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station-meta-6-years-min-CDF-w-mean.csv') %>%
+stie_meta = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/beta-standardized-station-meta-6-years-min-CDF-w-mean.csv') %>%
   st_as_sf(., coords = c('longitude', 'latitude')) %>%
   st_set_crs(., st_crs('EPSG:4326'))
 
 #import observed soil moisture data
-standardized_soil_moisture_obs = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv')
+standardized_soil_moisture_obs = read_csv('~/soil-moisture-validation-data/processed/standardized-soil-moisture/beta-standardized-soil-moisture-data-wide-6-years-min-CDF-w-mean.csv')
 
 #import soil moisture models 
 standardized_model = list.files('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture-models', 
@@ -25,31 +25,31 @@ standardized_model = list.files('/home/zhoylman/soil-moisture-validation-data/pr
          site_id = name,
          model_drought_anomaly = drought_anomaly,
          model_storage_anomaly = storage_anomoly)%>%
-  select(nc_id, date, site_id, model_drought_anomaly)
+  dplyr::select(nc_id, date, site_id, model_drought_anomaly)
 
 #import all SPI data for relevant time scales from global maxima
 spi_all = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/drought-metrics/spi-data-long-10s.csv') %>%
-  filter(timescale %in% c(30,20,60,90))  %>%
+  filter(timescale %in% c(30,20,60,80))  %>%
   rename(model_drought_anomaly = spi,
          date = time) %>%
   mutate(nc_id = 'Optimized SPI') %>%
-  select(nc_id,date,site_id,timescale,model_drought_anomaly)
+  dplyr::select(nc_id,date,site_id,timescale,model_drought_anomaly)
 
 #import all SPEI data for relevant time scales from global maxima
 spei_all = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/drought-metrics/spei-data-long-10s.csv') %>%
-  filter(timescale %in% c(30,20,60,70))  %>%
+  filter(timescale %in% c(30,20,50,70))  %>%
   rename(model_drought_anomaly = spei,
          date = time) %>%
   mutate(nc_id = 'Optimized SPEI') %>%
-  select(nc_id,date,site_id,timescale,model_drought_anomaly)
+  dplyr::select(nc_id,date,site_id,timescale,model_drought_anomaly)
 
 #import all EDDI data for relevant time scales from global maxima
 eddi_all = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/drought-metrics/eddi-data-long-10s.csv') %>%
-  filter(timescale %in% c(20, 10,50))  %>%
+  filter(timescale %in% c(20, 10, 40, 60))  %>%
   rename(model_drought_anomaly = eddi,
          date = time) %>%
   mutate(nc_id = 'Optimized EDDI') %>%
-  select(nc_id,date,site_id,timescale,model_drought_anomaly)
+  dplyr::select(nc_id,date,site_id,timescale,model_drought_anomaly)
 
 #break out data by depth (optimal timescale) 
 #this discreate approach will allow us to replace values for specific depths
@@ -61,14 +61,14 @@ spi_shallow = spi_all %>%
 spi_mid = spi_all %>%
   filter(timescale == 60)
 spi_deep = spi_all %>%
-  filter(timescale == 90)
+  filter(timescale == 80)
 #spei
 spei_mean = spei_all %>%
   filter(timescale == 30)
 spei_shallow = spei_all %>%
   filter(timescale == 20)
 spei_mid = spei_all %>%
-  filter(timescale == 60)
+  filter(timescale == 50)
 spei_deep = spei_all %>%
   filter(timescale == 70)
 #eddi
@@ -77,9 +77,9 @@ eddi_mean = eddi_all %>%
 eddi_shallow = eddi_all %>%
   filter(timescale == 10)
 eddi_mid = eddi_all %>%
-  filter(timescale == 50)
+  filter(timescale == 40)
 eddi_deep = eddi_all %>%
-  filter(timescale == 50)
+  filter(timescale == 60)
 
 #bind it all together, drought metrics, soil moisture models and observed values
 binded_raw = bind_rows(list(
@@ -121,8 +121,8 @@ data_list = list(unique(standardized_soil_moisture_obs$site_id),uscrn, mt_mesone
 binded_joined = binded_raw %>%
   #filter by date (summertime)
   filter(lubridate::month(date) >= 5 & lubridate::month(date) <= 10 ) %>% 
-  #select the relevant variables and drought anomolies
-  select(nc_id, site_id, date, timescale, model_drought_anomaly, drought_anomaly_4in, drought_anomaly_8in, 
+  #dplyr::select the relevant variables and drought anomolies
+  dplyr::select(nc_id, site_id, date, timescale, model_drought_anomaly, drought_anomaly_4in, drought_anomaly_8in, 
          drought_anomaly_20in,drought_anomaly_36in, drought_anomaly_40in, drought_anomaly_mean) %>%
   #pivot to longer form
   pivot_longer(cols = -c(date, nc_id, site_id, timescale, model_drought_anomaly)) %>%
@@ -137,21 +137,21 @@ binded_joined = binded_raw %>%
          depth = factor(depth, levels = c('Depth Averaged', 'Shallow (0-4in)', 'Middle (8-20in)', 'Deep (>20in)'))) 
 
 #now that we have the drought metric data formatted correctly we will 
-#select the drought metrics and select optimal timescales by depth 
+#dplyr::select the drought metrics and dplyr::select optimal timescales by depth 
 drought_indicies = binded_joined %>% 
   filter(nc_id %in% c("Optimized SPI", "Optimized SPEI", "Optimized EDDI")) %>%
   filter((nc_id == "Optimized SPI" & timescale == 30 & depth == 'Depth Averaged')|
            (nc_id == "Optimized SPI" & timescale == 20 & depth == 'Shallow (0-4in)')|
            (nc_id == "Optimized SPI" & timescale == 60 & depth == 'Middle (8-20in)')|
-           (nc_id == "Optimized SPI" & timescale == 90 & depth == 'Deep (>20in)')|
+           (nc_id == "Optimized SPI" & timescale == 80 & depth == 'Deep (>20in)')|
            (nc_id == "Optimized SPEI" & timescale == 30 & depth == 'Depth Averaged')|
            (nc_id == "Optimized SPEI" & timescale == 20 & depth == 'Shallow (0-4in)')|
-           (nc_id == "Optimized SPEI" & timescale == 60 & depth == 'Middle (8-20in)')|
+           (nc_id == "Optimized SPEI" & timescale == 50 & depth == 'Middle (8-20in)')|
            (nc_id == "Optimized SPEI" & timescale == 70 & depth == 'Deep (>20in)')|
            (nc_id == "Optimized EDDI" & timescale == 20 & depth == 'Depth Averaged')|
            (nc_id == "Optimized EDDI" & timescale == 10 & depth == 'Shallow (0-4in)')|
-           (nc_id == "Optimized EDDI" & timescale == 50 & depth == 'Middle (8-20in)')|
-           (nc_id == "Optimized EDDI" & timescale == 50 & depth == 'Deep (>20in)'))
+           (nc_id == "Optimized EDDI" & timescale == 40 & depth == 'Middle (8-20in)')|
+           (nc_id == "Optimized EDDI" & timescale == 60 & depth == 'Deep (>20in)'))
 
 #now that we have the correct drought metric data, lets rebind it all together
 #and make final conversions to standard anomaly 
@@ -180,7 +180,7 @@ for(i in 1:2){
   print(i)  
   #filter for network of interest
   binded_filtered = binded %>%
-    #filter for all or select networks
+    #filter for all or dplyr::select networks
     filter(site_id %in% data_list[[i]]) %>%
     #drop rows where we are missing either x or y
     drop_na(value, model_drought_anomaly) %>%
@@ -206,15 +206,17 @@ for(i in 1:2){
     group_by(nc_id, depth) %>%
     #compute the statistics (r, rmse, and number of obs)
     do(r = cor(.$model_drought_anomaly, .$value),
+       p_value = cor.test(.$model_drought_anomaly, .$value)$p.value,
        rmse = sqrt(mean((.$value - .$model_drought_anomaly)^2)),
        n = length(.$value)) %>%
-    unnest(c(r, n, rmse))
+    unnest(c(r, p_value, n, rmse)) %>%
+    mutate(p_value = ifelse(p_value < 0.01, '< 0.01', p_value))
   
   #compute some meta (n sites and obs)
   n_sites = length(unique(binded_filtered$site_id))
   #compute number of observations for each group (depth*model)
   n_obs = binded_filtered %>%
-    select(site_id, date, value, name) %>%
+    dplyr::select(site_id, date, value, name) %>%
     drop_na(value) %>%
     distinct() %$%
     value %>%
@@ -241,7 +243,7 @@ for(i in 1:2){
     ylim(c(-2,2))+
     xlim(c(-2,2))+
     facet_grid(depth~nc_id, labeller = label_wrap_gen(width=16))+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
+    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Index~(SMI[mod])), y = bquote(Observed~Soil~Moisture~Index~(SMI[obs])))+
     theme(legend.key = element_blank(), strip.background = element_rect(colour="transparent", fill="transparent"),
           legend.position = 'bottom', legend.key.width=unit(4,"cm"))+
     guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
@@ -251,11 +253,13 @@ for(i in 1:2){
     theme(plot.title = element_text(hjust = 0.5, size=32, margin=margin(0,0,5,0)), 
           plot.subtitle = element_text(hjust = 0.5, margin=margin(0,0,25,0)))
   
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
-        width = 25, height = 13, units = 'in', res = 200)
-    print(plot1)
-    dev.off()
-  
+    if(plot_all_models == T){
+      png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
+          width = 25, height = 13, units = 'in', res = 200)
+      print(plot1)
+      dev.off()
+    }
+
   #vertical
   plot2 = binded_filtered %>%
     ggplot(., aes(x = model_drought_anomaly, y = value)) +
@@ -273,7 +277,7 @@ for(i in 1:2){
     ylim(c(-2,2))+
     xlim(c(-2,2))+
     facet_grid(nc_id~depth, labeller = label_wrap_gen(width=16))+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
+    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Index~(SMI[mod])), y = bquote(Observed~Soil~Moisture~Index~(SMI[obs])))+
     theme(legend.key = element_blank(), strip.background =element_blank(),
           legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
     guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
@@ -285,11 +289,13 @@ for(i in 1:2){
           strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
           strip.placement = "outside")
   
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
-        width = 12, height = 20, units = 'in', res = 300)
-    print(plot2)
-    dev.off()
-  
+    if(plot_all_models == T){
+      png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
+          width = 12, height = 20, units = 'in', res = 300)
+      print(plot2)
+      dev.off()
+    }
+
     #make table
     # Create a table using kable function
     drought_anomoly_stats_tabble = drought_anomoly_stats %>%
@@ -298,6 +304,7 @@ for(i in 1:2){
       rename(Model = nc_id,
              Depth = depth,
              `Pearson's r` = r,
+             `p-value` = p_value,
              RMSE = rmse) %>%
       arrange(factor(Depth, levels = c('Depth Averaged', 'Shallow (0-4in)', 'Middle (8-20in)', 'Deep (>20in)')))
     
@@ -313,217 +320,26 @@ for(i in 1:2){
       ungroup() %>%
       filter(bold == TRUE)
     
-    bold_index_RMSE = which(drought_anomoly_stats_tabble$RMSE %in% c(bold_rmse$RMSE))
-    bold_index_r = which(drought_anomoly_stats_tabble$`Pearson's r` %in% c(bold_r$`Pearson's r`))
+    bold_index_RMSE =  which(
+      paste0(drought_anomoly_stats_tabble$`RMSE`, drought_anomoly_stats_tabble$Depth) 
+      %in% 
+        paste0(bold_rmse$`RMSE`, bold_rmse$Depth ))
     
+    bold_index_r = which(
+      paste0(drought_anomoly_stats_tabble$`Pearson's r`, drought_anomoly_stats_tabble$Depth) 
+      %in% 
+        paste0(bold_r$`Pearson's r`, bold_r$Depth ))
+
     Sys.setenv("OPENSSL_CONF"="/dev/null")
     
     kableExtra::kbl(drought_anomoly_stats_tabble) %>%
       #kableExtra::kable_styling(latex_options = c("basic")) %>%
-      kableExtra::kable_classic_2(full_width = F, html_font = "Cambria") %>%
-      kableExtra::row_spec(., bold_index_r,  bold = FALSE, color = 'blue') %>% 
-      kableExtra::row_spec(., bold_index_RMSE,  bold = TRUE) %>%
-      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/model_table_", names[i],".png"))
-    
-  #only mean soil moisture (plot if all models are included)
-  binded_filtered_mean = binded_filtered %>%
-    filter(depth == 'Depth Averaged') 
-  
-  drought_anomoly_stats_mean = drought_anomoly_stats %>%
-    filter(depth == 'Depth Averaged')
-  
-  n_obs_mean = binded_filtered_mean %>%
-    select(site_id, date, value, name) %>%
-    drop_na(value) %>%
-    distinct() %$%
-    value %>%
-    length()
-  
-  # binded_filtered_mean_test = binded_filtered_mean %>%
-  #   sample_n(., 20000)
-  
-  plot3 = binded_filtered_mean %>%
-    ggplot(., aes(x = model_drought_anomaly, y = value)) +
-    stat_density_2d(
-      geom = "raster",
-      aes(fill = after_stat(density)),
-      contour = FALSE
-    )+
-    scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
-    geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    theme_bw(base_size = 14)+
-    geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
-    ylim(c(-2,2))+
-    xlim(c(-2,2))+
-    facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 4)+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
-    theme(legend.key = element_blank(), strip.background =element_blank(),
-          legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
-    guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
-    ggtitle(paste0(full_names[i], ' (May - Oct)'),
-            paste0('n (sites) = ', n_sites, ', n (observations) = ', 
-                   n_obs_mean %>% format(.,format="d", big.mark=",")))+
-    theme(plot.title = element_text(hjust = 0.5, size=18), 
-          plot.subtitle = element_text(hjust = 0.5, size=12),
-          strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
-          strip.placement = "outside")
-  
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".png"),
-        width = 9, height = 12, units = 'in', res = 300)
-    print(plot3)
-    dev.off()
-}for(i in 1:2){
-  print(i)  
-  #filter for network of interest
-  binded_filtered = binded %>%
-    #filter for all or select networks
-    filter(site_id %in% data_list[[i]]) %>%
-    #drop rows where we are missing either x or y
-    drop_na(value, model_drought_anomaly) %>%
-    #invert eddi
-    mutate(value = ifelse(nc_id == 'Optimized EDDI', -1*value, value)) %>%
-    #define factor levels for plotting
-    mutate(., nc_id = factor(nc_id, levels = c("Optimized SPI", "Optimized SPEI", "Optimized EDDI",
-                                                                      "CPC Soil Moisture", "GRACE Rootzone Soil Moisture",
-                                                                      "NLDAS2 VIC 0-100cm Soil Moisture",
-                                                                      "NLDAS2 NOAH 0-100cm Soil Moisture",
-                                                                      "NLDAS2 MOSAIC 0-100cm Soil Moisture",
-                                                                      "NLDAS2 Ensamble 0-100cm Soil Moisture",
-                                                                      "SPoRT 0-100cm Soil Moisture",
-                                                                      "SMAP (L4) Rootzone Soil Moisture", 
-                                                                      "Topofire Soil Moisture")))
-      
-  
-  #compute correlation stats for correlation
-  drought_anomoly_stats = binded_filtered %>%
-    #make sure we have only unique observations
-    distinct() %>%
-    #group by model and depth
-    group_by(nc_id, depth) %>%
-    #compute the statistics (r, rmse, and number of obs)
-    do(r = cor(.$model_drought_anomaly, .$value),
-       rmse = sqrt(mean((.$value - .$model_drought_anomaly)^2)),
-       n = length(.$value)) %>%
-    unnest(c(r, n, rmse))
-  
-  #compute some meta (n sites and obs)
-  n_sites = length(unique(binded_filtered$site_id))
-  #compute number of observations for each group (depth*model)
-  n_obs = binded_filtered %>%
-    select(site_id, date, value, name) %>%
-    drop_na(value) %>%
-    distinct() %$%
-    value %>%
-    length()
-  
-  binded_filtered_test = binded_filtered %>%
-    sample_n(., 10000)
-  # 
-  #plot the results!
-  #horizontal display
-  plot1 = binded_filtered %>%
-    ggplot(., aes(x = model_drought_anomaly, y = value)) +
-    stat_density_2d(
-      geom = "raster",
-      aes(fill = after_stat(density)),
-      contour = FALSE
-    )+
-    scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.75, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white')+
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.5, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white')+
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.25, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white')+
-    theme_bw(base_size = 17)+
-    geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
-    ylim(c(-2,2))+
-    xlim(c(-2,2))+
-    facet_grid(depth~nc_id, labeller = label_wrap_gen(width=16))+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
-    theme(legend.key = element_blank(), strip.background = element_rect(colour="transparent", fill="transparent"),
-          legend.position = 'bottom', legend.key.width=unit(4,"cm"))+
-    guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
-    ggtitle(paste0(full_names[i], ' (May - Oct)'),
-            paste0('n (sites) = ', n_sites, ', n (observations) = ', 
-                   n_obs %>% format(.,format="d", big.mark=",")))+
-    theme(plot.title = element_text(hjust = 0.5, size=32, margin=margin(0,0,5,0)), 
-          plot.subtitle = element_text(hjust = 0.5, margin=margin(0,0,25,0)))
-  
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
-        width = 25, height = 13, units = 'in', res = 200)
-    print(plot1)
-    dev.off()
-  
-  #vertical
-  plot2 = binded_filtered %>%
-    ggplot(., aes(x = model_drought_anomaly, y = value)) +
-    stat_density_2d(
-      geom = "raster",
-      aes(fill = after_stat(density)),
-      contour = FALSE
-    )+
-    scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-    theme_bw(base_size = 17)+
-    geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
-    ylim(c(-2,2))+
-    xlim(c(-2,2))+
-    facet_grid(nc_id~depth, labeller = label_wrap_gen(width=16))+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
-    theme(legend.key = element_blank(), strip.background =element_blank(),
-          legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
-    guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
-    ggtitle(paste0(full_names[i], ' (May - Oct)'),
-            paste0('n (sites) = ', n_sites, ', n (unique soil moisture observations) = ', 
-                   n_obs %>% format(.,format="d", big.mark=",")))+
-    theme(plot.title = element_text(hjust = 0.5, size=18), 
-          plot.subtitle = element_text(hjust = 0.5, size=12),
-          strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
-          strip.placement = "outside")
-  
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
-        width = 12, height = 20, units = 'in', res = 300)
-    print(plot2)
-    dev.off()
-  
-    #make table
-    # Create a table using kable function
-    drought_anomoly_stats_tabble = drought_anomoly_stats %>%
-      mutate(r = round(r, 3),
-             rmse = round(rmse, 3))%>%
-      rename(Model = nc_id,
-             Depth = depth,
-             `Pearson's r` = r,
-             RMSE = rmse) %>%
-      arrange(factor(Depth, levels = c('Depth Averaged', 'Shallow (0-4in)', 'Middle (8-20in)', 'Deep (>20in)')))
-    
-    bold_rmse = drought_anomoly_stats_tabble %>%
-      group_by(Depth) %>%
-      mutate(bold = ifelse(RMSE == min(RMSE), TRUE, FALSE)) %>%
-      ungroup() %>%
-      filter(bold == TRUE)
-    
-    bold_r = drought_anomoly_stats_tabble %>%
-      group_by(Depth) %>%
-      mutate(bold = ifelse(`Pearson's r` == max(`Pearson's r`), TRUE, FALSE)) %>%
-      ungroup() %>%
-      filter(bold == TRUE)
-    
-    bold_index_RMSE = which(drought_anomoly_stats_tabble$RMSE %in% c(bold_rmse$RMSE))
-    bold_index_r = which(drought_anomoly_stats_tabble$`Pearson's r` %in% c(bold_r$`Pearson's r`))
-    
-    Sys.setenv("OPENSSL_CONF"="/dev/null")
-    
-    kableExtra::kbl(drought_anomoly_stats_tabble) %>%
-      #kableExtra::kable_styling(latex_options = c("basic")) %>%
-      kableExtra::kable_classic_2(full_width = F, html_font = "Cambria") %>%
+      kableExtra::kable_classic_2(full_width = F, html_font = "Cambria", bootstrap_options = c("condensed")) %>%
       kableExtra::row_spec(0, font_size=15) %>%
-      kableExtra::row_spec(., bold_index_r,  bold = FALSE, color = 'blue') %>% 
+      kableExtra::row_spec(., bold_index_r,  bold = FALSE, color = 'blue') %>%
       kableExtra::row_spec(., bold_index_RMSE,  bold = TRUE) %>%
       kableExtra::row_spec(., c(12,24, 36),  extra_css = "border-bottom: 1px solid") %>%
-      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/model_table_", names[i],".png"))
+      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/model_table_", names[i],".png"))
     
   #only mean soil moisture (plot if all models are included)
   binded_filtered_mean = binded_filtered %>%
@@ -533,14 +349,11 @@ for(i in 1:2){
     filter(depth == 'Depth Averaged')
   
   n_obs_mean = binded_filtered_mean %>%
-    select(site_id, date, value, name) %>%
+    dplyr::select(site_id, date, value, name) %>%
     drop_na(value) %>%
     distinct() %$%
     value %>%
     length()
-  
-  # binded_filtered_mean_test = binded_filtered_mean %>%
-  #   sample_n(., 20000)
   
   plot3 = binded_filtered_mean %>%
     ggplot(., aes(x = model_drought_anomaly, y = value)) +
@@ -557,8 +370,8 @@ for(i in 1:2){
     geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
     ylim(c(-2,2))+
     xlim(c(-2,2))+
-    facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 4)+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
+    facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 3)+
+    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Index~(SMI[mod])), y = bquote(Observed~Soil~Moisture~Index~(SMI[obs])))+
     theme(legend.key = element_blank(), strip.background =element_blank(),
           legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
     guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
@@ -570,46 +383,49 @@ for(i in 1:2){
           strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
           strip.placement = "outside")
   
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".png"),
-        width = 9, height = 12, units = 'in', res = 300)
+    png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".png"),
+        width = 12, height = 9, units = 'in', res = 300)
     print(plot3)
     dev.off()
-  
-
-    plot4 = binded_filtered_mean %>%
-      ggplot(., aes(x = model_drought_anomaly, y = value)) +
-      stat_density_2d(
-        geom = "raster",
-        aes(fill = after_stat(density)),
-        contour = FALSE
-      )+
-      scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
-      geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 1.65, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-      geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 1.15, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-      geom_shadowtext(data = drought_anomoly_stats_mean, aes(x = -1.75, y = 0.65, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white', size = 4)+
-      theme_bw(base_size = 14)+
-      geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
-      ylim(c(-2,2))+
-      xlim(c(-2,2))+
-      facet_wrap(~nc_id, labeller = label_wrap_gen(width=25), nrow = 3)+
-      labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Drought~Index~(SMDI[mod])), y = bquote(Observed~Soil~Moisture~Drought~Index~(SMDI[obs])))+
-      theme(legend.key = element_blank(), strip.background =element_blank(),
-            legend.position = 'bottom', legend.key.width=unit(2,"cm"))+
-      guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
-      ggtitle(paste0(full_names[i], ' (May - Oct)'),
-              paste0('n (sites) = ', n_sites, ', n (observations) = ', 
-                     n_obs_mean %>% format(.,format="d", big.mark=",")))+
-      theme(plot.title = element_text(hjust = 0.5, size=18), 
-            plot.subtitle = element_text(hjust = 0.5, size=12),
-            strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
-            strip.placement = "outside")
     
-      png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_wide_", names[i],".png"),
-          width = 12, height = 9, units = 'in', res = 300)
-      print(plot4)
-      dev.off()
-  
-}
+    ## ordinal classification error
+    ## classify drought coniditons based on observed soil moisture 
+    ## compute error based on ordinal difference in classes
+    value_pairs = data.frame(
+      old_value = 1:11,
+      new_value = c("D4 (Exceptional Drought)", "D3 (Extreme Drought)", "D2 (Severe Drought)", "D1 (Moderate Drought)", "D0 (Abnormally Dry)",
+                    "Neutral", 'W0 (Abnormally Wet)', 'W1 (Moderately Wet)', 'W2 (Severely Wet)', 'W3 (Extremely Wet)', 'W4 (Exceptionally Wet)')
+    )
+    
+    ordinal_class_error = binded_filtered %>%
+      mutate(obs_class = .bincode(value, breaks = rev(c(Inf,1.9999,1.6,1.3,0.8,0.5, -0.5, -0.8, -1.3, -1.6, -1.9999, -Inf))),
+             modelled_class = .bincode(model_drought_anomaly, breaks = rev(c(Inf,1.9999,1.6,1.3,0.8,0.5, -0.5, -0.8, -1.3, -1.6, -1.9999, -Inf)))) %>%
+      group_by(nc_id, obs_class, depth) %>%
+      do(mse = mean((.$value - .$model_drought_anomaly)^2) %>% round(., 3),
+         rmse = sqrt(mean((.$value - .$model_drought_anomaly)^2))%>% round(., 3),
+         n =  length(.$value)) %>%
+      unnest(c('mse', 'rmse', 'n')) %>%
+      ungroup() %>%
+      group_by(obs_class, depth) %>%
+      slice_min(order_by = mse) %>%
+      ungroup() %>%
+      left_join(value_pairs, by = c("obs_class" = "old_value")) %>%
+      mutate(DM_class = coalesce(new_value, as.character(obs_class))) %>%
+      dplyr::select(nc_id, depth, DM_class, mse, rmse, n) %>%
+      arrange(factor(depth, levels = c('Depth Averaged', 'Shallow (0-4in)', 'Middle (8-20in)', 'Deep (>20in)'))) %>%
+      rename(`Best Model` = nc_id,
+             Depth = depth,
+             `Theoretical Drought Class` = DM_class,
+             MSE = mse,
+             RMSE = rmse) %>%
+      filter(Depth == "Depth Averaged")
+    
+    kableExtra::kbl(ordinal_class_error) %>%
+      kableExtra::kable_classic_2(full_width = F, html_font = "Cambria", bootstrap_options = c("condensed")) %>%
+      kableExtra::row_spec(0, font_size=15) %>%
+      kableExtra::row_spec(., c(5,6),  extra_css = "border-bottom: 1px solid") %>%
+      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/ordinal_model_table_", names[i],".png"))
+} 
 
 ##############################################################################
 
@@ -665,7 +481,7 @@ spatial_plot = ggplot(site_specific_results_spatial %>% filter(!is.na(rmse)))+
 
 
 
-png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_rmse.png"),
+png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_rmse.png"),
     width = 11, height = 16, units = 'in', res = 300)
 print(spatial_plot)
 dev.off()
@@ -692,7 +508,7 @@ spatial_plot = ggplot(site_specific_results_spatial %>% filter(!is.na(pearson_r)
 
 
 
-png(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_r.png"),
+png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_r.png"),
     width = 11, height = 16, units = 'in', res = 300)
 print(spatial_plot)
 dev.off()
@@ -727,4 +543,4 @@ site_map = ggplot()+
   ggtitle(expression(~italic(In)~italic(Situ)~' Soil Moisture Observations'), paste0('n = ', length(stations_meta$network)))+
   guides(fill = guide_legend(override.aes = list(size=5)))
 
-ggsave(site_map, file = '/home/zhoylman/soil-moisture-validation/figs/site_map.png', width = 8, height = 8)
+ggsave(site_map, file = '/home/zhoylman/soil-moisture-validation/figs-revision1/site_map.png', width = 8, height = 8)
