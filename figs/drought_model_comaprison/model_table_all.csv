@@ -1,0 +1,49 @@
+Model,Depth,Pearson's r,p-value,RMSE,n
+Optimized SPI,Depth Averaged,0.573,< 0.01,0.895,488918
+Optimized SPEI,Depth Averaged,0.596,< 0.01,0.872,489186
+Optimized EDDI,Depth Averaged,0.446,< 0.01,1.001,489186
+CPC Soil Moisture,Depth Averaged,0.45,< 0.01,1.066,340291
+GRACE Rootzone Soil Moisture,Depth Averaged,0.481,< 0.01,1.002,71954
+NLDAS-2 VIC 0-100cm Soil Moisture,Depth Averaged,0.576,< 0.01,0.881,519756
+NLDAS-2 NOAH 0-100cm Soil Moisture,Depth Averaged,0.586,< 0.01,0.871,519654
+NLDAS-2 MOSAIC 0-100cm Soil Moisture,Depth Averaged,0.529,< 0.01,0.923,519407
+NLDAS-2 Ensemble 0-100cm Soil Moisture,Depth Averaged,0.585,< 0.01,0.874,519305
+SPoRT 0-100cm Soil Moisture,Depth Averaged,0.601,< 0.01,0.851,456947
+SMAP (L4) Rootzone Soil Moisture,Depth Averaged,0.589,< 0.01,0.845,142368
+Topofire Soil Moisture,Depth Averaged,0.645,< 0.01,0.811,489180
+Optimized SPI,Shallow (0-4in),0.559,< 0.01,0.912,665191
+Optimized SPEI,Shallow (0-4in),0.581,< 0.01,0.886,666262
+Optimized EDDI,Shallow (0-4in),0.421,< 0.01,1.024,666262
+CPC Soil Moisture,Shallow (0-4in),0.384,< 0.01,1.135,460695
+GRACE Rootzone Soil Moisture,Shallow (0-4in),0.452,< 0.01,1.028,98340
+NLDAS-2 VIC 0-100cm Soil Moisture,Shallow (0-4in),0.52,< 0.01,0.936,707793
+NLDAS-2 NOAH 0-100cm Soil Moisture,Shallow (0-4in),0.539,< 0.01,0.917,707661
+NLDAS-2 MOSAIC 0-100cm Soil Moisture,Shallow (0-4in),0.473,< 0.01,0.974,707311
+NLDAS-2 Ensemble 0-100cm Soil Moisture,Shallow (0-4in),0.527,< 0.01,0.929,707179
+SPoRT 0-100cm Soil Moisture,Shallow (0-4in),0.569,< 0.01,0.884,618109
+SMAP (L4) Rootzone Soil Moisture,Shallow (0-4in),0.534,< 0.01,0.903,184146
+Topofire Soil Moisture,Shallow (0-4in),0.601,< 0.01,0.858,664874
+Optimized SPI,Middle (8-20in),0.482,< 0.01,0.962,2338776
+Optimized SPEI,Middle (8-20in),0.502,< 0.01,0.947,2338906
+Optimized EDDI,Middle (8-20in),0.389,< 0.01,1.02,2338906
+CPC Soil Moisture,Middle (8-20in),0.378,< 0.01,1.145,1569257
+GRACE Rootzone Soil Moisture,Middle (8-20in),0.347,< 0.01,1.184,350243
+NLDAS-2 VIC 0-100cm Soil Moisture,Middle (8-20in),0.439,< 0.01,0.998,2488768
+NLDAS-2 NOAH 0-100cm Soil Moisture,Middle (8-20in),0.441,< 0.01,0.992,2488489
+NLDAS-2 MOSAIC 0-100cm Soil Moisture,Middle (8-20in),0.392,< 0.01,1.027,2486808
+NLDAS-2 Ensemble 0-100cm Soil Moisture,Middle (8-20in),0.449,< 0.01,0.989,2486529
+SPoRT 0-100cm Soil Moisture,Middle (8-20in),0.468,< 0.01,0.958,2238266
+SMAP (L4) Rootzone Soil Moisture,Middle (8-20in),0.496,< 0.01,0.93,424717
+Topofire Soil Moisture,Middle (8-20in),0.548,< 0.01,0.883,2338906
+Optimized SPI,Deep (>20in),0.341,< 0.01,1.087,458821
+Optimized SPEI,Deep (>20in),0.353,< 0.01,1.088,458821
+Optimized EDDI,Deep (>20in),0.263,< 0.01,1.13,458821
+CPC Soil Moisture,Deep (>20in),0.32,< 0.01,1.175,316994
+GRACE Rootzone Soil Moisture,Deep (>20in),0.278,< 0.01,1.169,67362
+NLDAS-2 VIC 0-100cm Soil Moisture,Deep (>20in),0.366,< 0.01,1.066,487538
+NLDAS-2 NOAH 0-100cm Soil Moisture,Deep (>20in),0.356,< 0.01,1.073,487434
+NLDAS-2 MOSAIC 0-100cm Soil Moisture,Deep (>20in),0.336,< 0.01,1.083,487206
+NLDAS-2 Ensemble 0-100cm Soil Moisture,Deep (>20in),0.372,< 0.01,1.061,487102
+SPoRT 0-100cm Soil Moisture,Deep (>20in),0.348,< 0.01,1.074,427526
+SMAP (L4) Rootzone Soil Moisture,Deep (>20in),0.393,< 0.01,1.019,133423
+Topofire Soil Moisture,Deep (>20in),0.375,< 0.01,1.057,458821

@@ -37,7 +37,7 @@ for(i in 1:length(metrics)){
   #compute density data to compute optimal timescale for whole season
   density_data = full_seasonal_corelation_all %>%
     filter(standardize_method == 'drought_anomaly') %>%
-    #filter(site_id %in% uscrn$site_id) %>%
+    filter(site_id %in% uscrn$site_id) %>%
     group_by(generalized_depth) %>%
     do(density_x = density(.$timescale_mode, bw = 'nrd')$x,
        density_y = density(.$timescale_mode, bw = 'nrd')$y,
@@ -85,7 +85,7 @@ for(i in 1:length(metrics)){
   monthly_filtered = full_monthly_corelation_all %>%
     filter(standardize_method == 'drought_anomaly' ,
            timescale %in% mode_data$simplified_timescale) %>%
-    #filter(site_id %in% uscrn$site_id) %>%
+    filter(site_id %in% uscrn$site_id) %>%
     filter(generalized_depth == mode_data$generalized_depth[1] & timescale == mode_data$simplified_timescale[1] |
              generalized_depth == mode_data$generalized_depth[2] & timescale == mode_data$simplified_timescale[2] |
              generalized_depth == mode_data$generalized_depth[3] & timescale == mode_data$simplified_timescale[3] |
@@ -104,7 +104,7 @@ for(i in 1:length(metrics)){
   monthly_table_data = full_monthly_corelation_all %>%
     #extract relevant standized soil moisture metric
     filter(standardize_method == 'drought_anomaly')%>%
-    #filter(site_id %in% uscrn$site_id) %>%
+    filter(site_id %in% uscrn$site_id) %>%
     #compute site and probe specific optimal timescales
     group_by(month, name, site_id) %>%
     {if(metric == 'eddi') filter(., pearson_r == min(pearson_r)) else filter(., pearson_r == max(pearson_r))} %>%
@@ -125,7 +125,7 @@ for(i in 1:length(metrics)){
   monthly_table_final = full_monthly_corelation_all %>%
     #extract relevant standized soil moisture metric
     filter(standardize_method == 'drought_anomaly') %>%
-    #filter(site_id %in% uscrn$site_id) %>%
+    filter(site_id %in% uscrn$site_id) %>%
     #compute str_match
     mutate(str_full = paste0('month=', month, ',generalized_depth=',generalized_depth,',timescale=',timescale)) %>%
     #bind kernal density maxima to data
@@ -143,7 +143,7 @@ for(i in 1:length(metrics)){
   monthly_flexible_rmse = full_monthly_corelation_all %>%
     #extract relevant standized soil moisture metric
     filter(standardize_method == 'drought_anomaly') %>%
-    #filter(site_id %in% uscrn$site_id) %>%
+    filter(site_id %in% uscrn$site_id) %>%
     #compute str_match
     mutate(str_full = paste0('month=', month, ',generalized_depth=',generalized_depth,',timescale=',timescale)) %>%
     #bind kernal density maxima to data
@@ -265,5 +265,5 @@ for(i in 1:length(metrics)){
   top_row = cowplot::plot_grid(density_plot, seasonal_plot, rel_widths = c(0.6,0.4), labels = c('(a)', '(b)'))
   full_plot = cowplot::plot_grid(top_row, seasonal_table, nrow = 2, rel_widths = c(0.6,0.4), labels = c('', '(c)'))
   
-  ggsave(full_plot, file = paste0('/home/zhoylman/soil-moisture-validation/figs-revision1/',metric,'-6-years-min-cor-clamped-w-mean.png'), width = 9, height = 11)
+  ggsave(full_plot, file = paste0('/home/zhoylman/soil-moisture-validation/figs/',metric,'-6-years-min-cor-clamped-w-mean-uscrn.jpg'), width = 9, height = 11, dpi = 600)
 }

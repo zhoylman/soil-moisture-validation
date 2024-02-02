@@ -1,0 +1,12 @@
+Best Model,Depth,Theoretical Drought Class,MSE,MAE,n
+SPoRT 0-100cm Soil Moisture,Depth Averaged,D4 (Exceptional Drought),1.296,0.881,6395
+SPoRT 0-100cm Soil Moisture,Depth Averaged,D3 (Extreme Drought),1.045,0.777,13016
+NLDAS-2 VIC 0-100cm Soil Moisture,Depth Averaged,D2 (Severe Drought),0.769,0.68,22648
+SPoRT 0-100cm Soil Moisture,Depth Averaged,D1 (Moderate Drought),0.673,0.641,61260
+SPoRT 0-100cm Soil Moisture,Depth Averaged,D0 (Abnormally Dry),0.611,0.62,49195
+Topofire Soil Moisture,Depth Averaged,Neutral,0.582,0.609,179056
+Topofire Soil Moisture,Depth Averaged,W0 (Abnormally Wet),0.507,0.544,47179
+Topofire Soil Moisture,Depth Averaged,W1 (Moderately Wet),0.511,0.523,61240
+Topofire Soil Moisture,Depth Averaged,W2 (Severely Wet),0.614,0.567,22074
+Topofire Soil Moisture,Depth Averaged,W3 (Extremely Wet),0.796,0.674,14772
+Topofire Soil Moisture,Depth Averaged,W4 (Exceptionally Wet),0.952,0.716,9903

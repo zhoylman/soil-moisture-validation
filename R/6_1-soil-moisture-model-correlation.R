@@ -3,7 +3,7 @@ library(sf)
 library(magrittr)
 library(shadowtext)
 
-plot_all_models = T
+plot_all_models = F
 
 #define special 
 `%notin%` = Negate(`%in%`)
@@ -224,41 +224,6 @@ for(i in 1:2){
   
   binded_filtered_test = binded_filtered %>%
     sample_n(., 10000)
-  # 
-  #plot the results!
-  #horizontal display
-  plot1 = binded_filtered %>%
-    ggplot(., aes(x = model_drought_anomaly, y = value)) +
-    stat_density_2d(
-      geom = "raster",
-      aes(fill = after_stat(density)),
-      contour = FALSE
-    )+
-    scale_fill_gradientn(colours = color_scale(100) , name = 'Density', guide = "colourbar", limits = c(0,.2), na.value = color_scale(100)[100]) +
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.75, label = paste0("RMSE = ", round(rmse, 3))), hjust = 0, fontface = "bold", color = 'white')+
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.5, label = paste0("n =", n %>% format(., format="d", big.mark=","))), hjust = 0, fontface = "bold", color = 'white')+
-    geom_shadowtext(data = drought_anomoly_stats, aes(x = -1.75, y = 1.25, label = paste0("r = ", round(r, 3))), hjust = 0, fontface = "bold", color = 'white')+
-    theme_bw(base_size = 17)+
-    geom_abline(slope=1, intercept=0, color = 'black', linetype = 'dashed')+
-    ylim(c(-2,2))+
-    xlim(c(-2,2))+
-    facet_grid(depth~nc_id, labeller = label_wrap_gen(width=16))+
-    labs(x = bquote(Drought~Metric~or~Modelled~Soil~Moisture~Index~(SMI[mod])), y = bquote(Observed~Soil~Moisture~Index~(SMI[obs])))+
-    theme(legend.key = element_blank(), strip.background = element_rect(colour="transparent", fill="transparent"),
-          legend.position = 'bottom', legend.key.width=unit(4,"cm"))+
-    guides(fill = guide_colourbar(title.position="bottom", title.hjust = 0.5))+
-    ggtitle(paste0(full_names[i], ' (May - Oct)'),
-            paste0('n (sites) = ', n_sites, ', n (observations) = ', 
-                   n_obs %>% format(.,format="d", big.mark=",")))+
-    theme(plot.title = element_text(hjust = 0.5, size=32, margin=margin(0,0,5,0)), 
-          plot.subtitle = element_text(hjust = 0.5, margin=margin(0,0,25,0)))
-  
-    if(plot_all_models == T){
-      png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_", names[i],".png"),
-          width = 25, height = 13, units = 'in', res = 200)
-      print(plot1)
-      dev.off()
-    }
 
   #vertical
   plot2 = binded_filtered %>%
@@ -290,8 +255,8 @@ for(i in 1:2){
           strip.placement = "outside")
   
     if(plot_all_models == T){
-      png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".png"),
-          width = 12, height = 20, units = 'in', res = 300)
+      jpeg(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_verticals_", names[i],".jpg"),
+          width = 12, height = 20, units = 'in', res = 600)
       print(plot2)
       dev.off()
     }
@@ -339,7 +304,10 @@ for(i in 1:2){
       kableExtra::row_spec(., bold_index_r,  bold = FALSE, color = 'blue') %>%
       kableExtra::row_spec(., bold_index_RMSE,  bold = TRUE) %>%
       kableExtra::row_spec(., c(12,24, 36),  extra_css = "border-bottom: 1px solid") %>%
-      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/model_table_", names[i],".png"))
+      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/model_table_", names[i],".jpg"))
+    
+    #write table in csv form
+    write_csv(drought_anomoly_stats_tabble, paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/model_table_", names[i],".csv"))
     
   #only mean soil moisture (plot if all models are included)
   binded_filtered_mean = binded_filtered %>%
@@ -383,8 +351,8 @@ for(i in 1:2){
           strip.text.y.right = element_text(angle=360, vjust = 0.5, hjust = 0.5),
           strip.placement = "outside")
   
-    png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".png"),
-        width = 12, height = 9, units = 'in', res = 300)
+    jpeg(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_precomputed_percentiles_mean_", names[i],".jpg"),
+        width = 12, height = 9, units = 'in', res = 600)
     print(plot3)
     dev.off()
     
@@ -424,7 +392,9 @@ for(i in 1:2){
       kableExtra::kable_classic_2(full_width = F, html_font = "Cambria", bootstrap_options = c("condensed")) %>%
       kableExtra::row_spec(0, font_size=15) %>%
       kableExtra::row_spec(., c(5,6),  extra_css = "border-bottom: 1px solid") %>%
-      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/ordinal_model_table_", names[i],".png"))
+      kableExtra::save_kable(file = paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/ordinal_model_table_", names[i],".jpg"))
+    
+    write_csv(ordinal_class_error, paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/ordinal_model_table_", names[i],".csv"))
 } 
 
 ##############################################################################
@@ -481,8 +451,8 @@ spatial_plot = ggplot(site_specific_results_spatial %>% filter(!is.na(rmse)))+
 
 
 
-png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_rmse.png"),
-    width = 11, height = 16, units = 'in', res = 300)
+jpeg(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_rmse.jpg"),
+    width = 11, height = 16, units = 'in', res = 600)
 print(spatial_plot)
 dev.off()
 
@@ -508,8 +478,8 @@ spatial_plot = ggplot(site_specific_results_spatial %>% filter(!is.na(pearson_r)
 
 
 
-png(paste0("/home/zhoylman/soil-moisture-validation/figs-revision1/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_r.png"),
-    width = 11, height = 16, units = 'in', res = 300)
+jpeg(paste0("/home/zhoylman/soil-moisture-validation/figs/drought_model_comaprison/drought_anomoly_model_comparison_6_year_min_summer_clamped_spatial_r.jpg"),
+    width = 11, height = 16, units = 'in', res = 600)
 print(spatial_plot)
 dev.off()
 
@@ -543,7 +513,7 @@ site_map = ggplot()+
   ggtitle(expression(~italic(In)~italic(Situ)~' Soil Moisture Observations'), paste0('n = ', length(stations_meta$network)))+
   guides(fill = guide_legend(override.aes = list(size=5)))
 
-ggsave(site_map, file = '/home/zhoylman/soil-moisture-validation/figs-revision1/site_map.png', width = 8, height = 8)
+ggsave(site_map, file = '/home/zhoylman/soil-moisture-validation/figs/site_map.jpg', width = 8, height = 8, dpi = 600)
 
 ## compute total number of timeseries
 
