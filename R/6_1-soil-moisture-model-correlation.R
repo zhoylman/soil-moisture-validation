@@ -3,7 +3,7 @@ library(sf)
 library(magrittr)
 library(shadowtext)
 
-plot_all_models = F
+plot_all_models = T
 
 #define special 
 `%notin%` = Negate(`%in%`)
@@ -93,10 +93,10 @@ binded_raw = bind_rows(list(
                                ifelse(nc_id == 'SMAP_rootzone_soil_moisture', 'SMAP (L4) Rootzone Soil Moisture', 
                                       ifelse(nc_id == 'SPoRT_mean_soil_moisture_0-100cm', 'SPoRT 0-100cm Soil Moisture', 
                                              ifelse(nc_id == 'topofire_soil_moisture', 'Topofire Soil Moisture', 
-                                                    ifelse(nc_id == 'NLDAS2_ensamble_soil_moisture_0-100cm', 'NLDAS2 Ensamble 0-100cm Soil Moisture', 
-                                                         ifelse(nc_id == 'NLDAS2_MOSAIC_soil_moisture_0-100cm', 'NLDAS2 MOSAIC 0-100cm Soil Moisture', 
-                                                                ifelse(nc_id == 'NLDAS2_VIC_soil_moisture_0-100cm', 'NLDAS2 VIC 0-100cm Soil Moisture', 
-                                                                       ifelse(nc_id == 'NLDAS2_NOAH_soil_moisture_0-100cm', 'NLDAS2 NOAH 0-100cm Soil Moisture', 
+                                                    ifelse(nc_id == 'NLDAS2_ensamble_soil_moisture_0-100cm', 'NLDAS-2 Ensemble 0-100cm Soil Moisture', 
+                                                         ifelse(nc_id == 'NLDAS2_MOSAIC_soil_moisture_0-100cm', 'NLDAS-2 MOSAIC 0-100cm Soil Moisture', 
+                                                                ifelse(nc_id == 'NLDAS2_VIC_soil_moisture_0-100cm', 'NLDAS-2 VIC 0-100cm Soil Moisture', 
+                                                                       ifelse(nc_id == 'NLDAS2_NOAH_soil_moisture_0-100cm', 'NLDAS-2 NOAH 0-100cm Soil Moisture', 
                                                                             ifelse(nc_id == 'Optimized SPI', 'Optimized SPI', 
                                                                                 ifelse(nc_id == 'Optimized SPEI', 'Optimized SPEI', 
                                                                                       ifelse(nc_id == 'Optimized EDDI', 'Optimized EDDI', NA)))))))))))))
@@ -189,10 +189,10 @@ for(i in 1:2){
     #define factor levels for plotting
     mutate(., nc_id = factor(nc_id, levels = c("Optimized SPI", "Optimized SPEI", "Optimized EDDI",
                                                                       "CPC Soil Moisture", "GRACE Rootzone Soil Moisture",
-                                                                      "NLDAS2 VIC 0-100cm Soil Moisture",
-                                                                      "NLDAS2 NOAH 0-100cm Soil Moisture",
-                                                                      "NLDAS2 MOSAIC 0-100cm Soil Moisture",
-                                                                      "NLDAS2 Ensamble 0-100cm Soil Moisture",
+                                                                      "NLDAS-2 VIC 0-100cm Soil Moisture",
+                                                                      "NLDAS-2 NOAH 0-100cm Soil Moisture",
+                                                                      "NLDAS-2 MOSAIC 0-100cm Soil Moisture",
+                                                                      "NLDAS-2 Ensemble 0-100cm Soil Moisture",
                                                                       "SPoRT 0-100cm Soil Moisture",
                                                                       "SMAP (L4) Rootzone Soil Moisture", 
                                                                       "Topofire Soil Moisture")))
@@ -403,21 +403,21 @@ for(i in 1:2){
       group_by(nc_id, obs_class, depth) %>%
       do(mse = mean((.$value - .$model_drought_anomaly)^2) %>% round(., 3),
          rmse = sqrt(mean((.$value - .$model_drought_anomaly)^2))%>% round(., 3),
+         MAE = mean(abs(.$value - .$model_drought_anomaly)) %>% round(., 3),
          n =  length(.$value)) %>%
-      unnest(c('mse', 'rmse', 'n')) %>%
+      unnest(c('mse', 'rmse', 'MAE', 'n')) %>%
       ungroup() %>%
       group_by(obs_class, depth) %>%
       slice_min(order_by = mse) %>%
       ungroup() %>%
       left_join(value_pairs, by = c("obs_class" = "old_value")) %>%
       mutate(DM_class = coalesce(new_value, as.character(obs_class))) %>%
-      dplyr::select(nc_id, depth, DM_class, mse, rmse, n) %>%
+      dplyr::select(nc_id, depth, DM_class, mse, MAE, n) %>%
       arrange(factor(depth, levels = c('Depth Averaged', 'Shallow (0-4in)', 'Middle (8-20in)', 'Deep (>20in)'))) %>%
       rename(`Best Model` = nc_id,
              Depth = depth,
              `Theoretical Drought Class` = DM_class,
-             MSE = mse,
-             RMSE = rmse) %>%
+             MSE = mse) %>%
       filter(Depth == "Depth Averaged")
     
     kableExtra::kbl(ordinal_class_error) %>%
@@ -443,10 +443,10 @@ site_specific_results = binded %>%
          rmse = unlist(rmse)) %>%
   mutate(nc_id = factor(nc_id, levels =c("Optimized SPI", "Optimized SPEI", "Optimized EDDI",
                                          "CPC Soil Moisture", "GRACE Rootzone Soil Moisture",
-                                         "NLDAS2 VIC 0-100cm Soil Moisture",
-                                         "NLDAS2 NOAH 0-100cm Soil Moisture",
-                                         "NLDAS2 MOSAIC 0-100cm Soil Moisture",
-                                         "NLDAS2 Ensamble 0-100cm Soil Moisture",
+                                         "NLDAS-2 VIC 0-100cm Soil Moisture",
+                                         "NLDAS-2 NOAH 0-100cm Soil Moisture",
+                                         "NLDAS-2 MOSAIC 0-100cm Soil Moisture",
+                                         "NLDAS-2 Ensemble 0-100cm Soil Moisture",
                                          "SPoRT 0-100cm Soil Moisture",
                                          "SMAP (L4) Rootzone Soil Moisture", 
                                          "Topofire Soil Moisture")))
@@ -544,3 +544,15 @@ site_map = ggplot()+
   guides(fill = guide_legend(override.aes = list(size=5)))
 
 ggsave(site_map, file = '/home/zhoylman/soil-moisture-validation/figs-revision1/site_map.png', width = 8, height = 8)
+
+## compute total number of timeseries
+
+standardized_soil_moisture_obs %>% 
+  filter(site_id %in% sites_considered) %>%
+  select(contains(c('date','site_id','drought'))) %>% pivot_longer(cols = -c(date, site_id)) %>%
+  mutate(site_name = paste0(site_id, name)) %>% 
+  drop_na() %>% 
+  filter(name != 'drought_anomaly_mean') %$%
+  site_name %>%
+  unique() %>%
+  length()
