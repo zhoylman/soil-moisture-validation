@@ -1,3 +1,5 @@
+# download all the uscrn data
+
 library(tidyverse)
 library(RCurl)
 library(magrittr)
@@ -6,6 +8,7 @@ library(data.table)
 library(xml2)
 library(rvest)
 
+#define special
 `%notin%` = Negate(`%in%`)
 
 #define where files are
@@ -20,6 +23,7 @@ files = read_html(url) %>%
   value
 
 # download data from uscrn file server 
+# only need to do this once...
 # #bind for full name
 # full_url = paste0(url, files)
 # 
@@ -28,7 +32,7 @@ files = read_html(url) %>%
 # }
 #download.file('https://www.ncei.noaa.gov/pub/data/uscrn/products/stations.tsv', '/home/zhoylman/soil-moisture-validation-data/raw/uscrn/stations.tsv')
 
-#import raw data
+#import raw data (post download)
 data = list.files('/home/zhoylman/soil-moisture-validation-data/raw/uscrn/raw', full.names = T) %>%
   as_tibble() %>%
   mutate(short = list.files('/home/zhoylman/soil-moisture-validation-data/raw/uscrn/raw/')) %>%

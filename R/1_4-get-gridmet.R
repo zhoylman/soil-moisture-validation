@@ -1,14 +1,14 @@
-#download, bind and and write out gridmet data as nc files for extraction
+#download, bind and and write out gridmet data as nc files for point extraction
 
 #load libs
 library(tidyverse)
 library(raster)
 library(sf)
 
-# pet
+# define the years of interest
 year = 1979:2021
 
-#download function
+#define download-merge function
 download_gridmet = function(variable){
   system(paste0('mkdir /mnt/data1/gridmet/', variable, '_raw'))
   ## define urls
@@ -32,5 +32,4 @@ download_gridmet = function(variable){
 }
 
 # pr, pet
-
-download_gridmet('tmmx')
+download_gridmet('pr') 

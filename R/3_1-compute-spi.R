@@ -1,3 +1,6 @@
+#this script employs array slicing of netcdf files to extract gridmet data
+#at the points of interest and then computes the Standardized Precipitation Index
+
 library(tidyverse)
 library(sf)
 library(raster)
@@ -6,6 +9,7 @@ library(lubridate)
 library(foreach)
 library(doParallel)
 library(magrittr)
+library(doSNOW)
 
 #import locations
 stations = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/standardized-soil-moisture/standardized-station_meta.csv')
@@ -13,10 +17,12 @@ station_data = read_csv('/home/zhoylman/soil-moisture-validation-data/processed/
   pivot_longer(., cols = -c(site_id, date))
 
 #read in soil moisture data to see what the oldest record is
-#this tells us how deep of an SPI time series we need to go
+#this tells us how deep of an SPI time series we need to compute
 min_date = min(station_data$date)
 
+#compute the unique ids
 ids = unique(station_data$site_id)
+#compute the dates of interest for each site
 start_end_dates = station_data %>%
   group_by(site_id) %>%
   summarise(min_date = min(date),
@@ -25,20 +31,23 @@ start_end_dates = station_data %>%
 #import drought functions
 source('https://raw.githubusercontent.com/mt-climate-office/mco-drought-indicators/master/processing/ancillary-functions/R/drought-functions.R')
 
-#define ancellary functions
+#define an extra ancellary function (this is to do the array slice for the gridmet pixel centroid closest to station)
 wherenearest = function(val,matrix){
   dist  = abs(matrix-val)
   index = which.min(dist)
   return( index )
 }
 
+#open the data from the nc file
 nc_precip  = nc_open('/home/zhoylman/soil-moisture-validation-data/raw/gridmet/gridmet_pr.nc')
+#get vectors from nc file for lat and lon
 lon.precip = ncvar_get(nc_precip,varid='lon')
 lat.precip = ncvar_get(nc_precip,varid='lat')
 
+#get the time ids of the z-dimention
 precip_time = read_csv('/home/zhoylman/soil-moisture-validation-data/raw/gridmet/gridmet_pr_time.csv')
 
-#exctract topo vals from disk
+#exctract precip vals from disk using array slicing
 data_precip = apply(stations,MARGIN=1,FUN=function(x){  
   return(ncvar_get(nc_precip,varid='precipitation_amount',start=c(wherenearest(x['longitude'] %>% as.numeric(),lon.precip),wherenearest(x['latitude'] %>% as.numeric(),lat.precip),1),count=c(1,1,-1))) 
 }) %>%
@@ -46,30 +55,10 @@ data_precip = apply(stations,MARGIN=1,FUN=function(x){
   `colnames<-`(c(stations$site_id)) %>%
   mutate(time = precip_time$datetime) %>%
   pivot_longer(cols = -c(time))
-
+#close the nc file
 nc_close(nc_precip)
 
-#testers
-i = 1
-
-data = data_precip %>%
-  filter(name == ids[i])
-
-#compute index of interest
-indicies_of_interest = which(
-  data %>%
-    mutate(year = lubridate::year(data$time)) %$%
-    year 
-  == 2021
-)
-
-index = indicies_of_interest[32]
-
-timescale = 140
-
-compute_spi(index, data, timescale)
-
-#add in data length conditional (30 years)
+#define function to compute the SPI
 compute_spi = function(index, data, timescale){
   data = data %>%
     mutate(day = day(time),
@@ -89,7 +78,7 @@ compute_spi = function(index, data, timescale){
     second_date_breaks = second_date_breaks[c(pos_index)]
   }
   
-  #create slice vectors and group by vectors
+  #create slice vectors and group by vectors which define which data should be used where for the SPI calculation
   for(j in 1:length(first_date_breaks)){
     if(j == 1){
       slice_vec = seq(second_date_breaks[j],first_date_breaks[j], by = 1)
@@ -101,6 +90,7 @@ compute_spi = function(index, data, timescale){
     }
   }
   
+  #pre-process the precipaitaion data before sending it to the SPI function
   processed = data %>%
     slice(slice_vec) %>%
     tibble::add_column(group_by_vec = group_by_vec)%>%
@@ -112,7 +102,8 @@ compute_spi = function(index, data, timescale){
     mutate(time = data$time[first_date_breaks]) %>%
     #select the most recent data
     tail(., 30)
-    
+
+  #take the preprocessed data and compute the SPI  
   final = processed %>%
     #compute spi
     mutate(spi = gamma_fit_spi(processed$sum, export_opts = 'SPI', return_latest = F, climatology_length = 30))
@@ -121,47 +112,54 @@ compute_spi = function(index, data, timescale){
 }
 
 #17 hrs on 30 cores
-library(doSNOW)
+#start the timer to compute runtime
 tictoc::tic()
+#rec up the cluster
 cl = makeSOCKcluster(30)
 registerDoSNOW(cl)
-pb <- txtProgressBar(min=1, max=length(ids), style=3)
-progress <- function(n) setTxtProgressBar(pb, n)
-opts <- list(progress=progress)
+#define the parameters for the progressbar
+pb = txtProgressBar(min=1, max=length(ids), style=3)
+progress = function(n) setTxtProgressBar(pb, n)
+opts = list(progress=progress)
+#define the export storage vector
 out = list()
-#length(ids)
+#foreach by site
 out = foreach(i = 1:length(ids), .packages = c('tidyverse', 'lubridate', 'magrittr', 'Lmoments'), .options.snow=opts) %dopar% {
-#out = foreach(i = 1:2, .packages = c('tidyverse', 'lubridate', 'magrittr', 'Lmoments'), .options.snow=opts) %dopar% {
   gc()
   tryCatch({
+    #compute the end date
     temp_end_date = start_end_dates %>%
       filter(site_id == ids[i]) %$%
       min_date
     
+    #select the precip data for the site of interest
     temp_data = data_precip %>%
       filter(name == ids[i])
     
+    #compute the indicies of interest
     indicies_of_interest = which(
       temp_data %>%
         mutate(year = lubridate::year(time)) %$%
         year 
       == 2021
     )
-    
+    #define the export list
     export = list()
-    #timescales_of_interest = c(seq(5,25,5), seq(30,80,10), seq(90,360,30), 540, 730)
+    #define the timescales of interes (10 - 730 by 10)
     timescales_of_interest = c(seq(10,730,10))
-    #timescales_of_interest = c(10,20,30)
     
-    
+    #loop through timescales
     for(t in 1:length(timescales_of_interest)){
+      #define the name of the timescale for dynamic name definitions
       name = paste0('t_', timescales_of_interest[t])
+      #compute the SPI and dynamically name data
       export[[t]] = tibble(apply(indicies_of_interest %>% as.data.frame, MARGIN = 1, FUN = compute_spi, data = temp_data, timescale = timescales_of_interest[t])) %>%
         purrr::map(., bind_rows) %$%
         `apply(...)` %>%
         arrange(time)
     }
     
+    #define the final out tibble
     out_final = export %>%
       bind_rows() %>%
       filter(time >= temp_end_date)
@@ -174,16 +172,20 @@ out = foreach(i = 1:length(ids), .packages = c('tidyverse', 'lubridate', 'magrit
   
 } 
 close(pb)
+#stop the cluster and compute runtime
 stopCluster(cl)
 tictoc::toc()
 
+#save out the data as an RDS (list)
 saveRDS(out, '/home/zhoylman/soil-moisture-validation-data/processed/drought-metrics/spi-data-list-10s.RDS')
 
-#find dailed indexes
+#find failed indexes
 failed = lapply(out, function(x) length(x)) %>%
   unlist() 
 
+#compute the final tibble binding lists
 final = out %>%
   bind_rows() 
 
+#write out the final data
 write_csv(final, '/home/zhoylman/soil-moisture-validation-data/processed/drought-metrics/spi-data-long-10s.csv')
